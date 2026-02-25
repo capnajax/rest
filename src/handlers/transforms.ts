@@ -1,5 +1,5 @@
 import { Application } from 'filamentjs';
-import { AppMeta } from '../meta/index.js';
+import { AppMeta } from '@/meta/meta-types.ts';
 
 /**
  * Register response transformers

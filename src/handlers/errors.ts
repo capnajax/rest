@@ -1,6 +1,6 @@
 import { Application } from 'filamentjs';
-import { AppMeta } from '../meta/index.js';
-import pino from 'pino';
+import { AppMeta } from '@/meta/meta-types.ts';
+import { pino } from 'pino';
 
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',

@@ -1,13 +1,14 @@
 import { Application } from 'filamentjs';
-import { AppMeta } from '../meta/index.js';
-import { PUBLIC } from '../meta/defaults.js';
+import { AppMeta } from '@/meta/meta-types.ts';
+import { PUBLIC, SESSIONLESS } from '@/meta/defaults.ts';
+import { userRoutes } from './user.ts';
 
 /**
  * Register all routes
  */
 export function registerRoutes(app: Application<AppMeta>) {
   // Health check endpoint
-  app.get('/health', PUBLIC, async (req, res) => {
+  app.get('/health', PUBLIC, SESSIONLESS, async (req, res) => {
     res.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -23,4 +24,6 @@ export function registerRoutes(app: Application<AppMeta>) {
       },
     });
   });
+
+  userRoutes(app);
 }
