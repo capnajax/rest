@@ -1,19 +1,11 @@
 import { Application, Request } from "filamentjs";
-import { pino } from 'pino';
 import stringify from "safe-stable-stringify";
 import toml from 'toml';
 import yaml from 'yaml';
 import { AppMeta } from "@/meta/meta-types.ts";
+import { getLogger } from "@/util/logger.ts";
 
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-    },
-  },
-});
+const MODULE = 'm.parse-body';
 
 export interface ContentType {
   type: string;
@@ -32,34 +24,35 @@ export interface ContentType {
 export function parseBody(req: Request<AppMeta>):() => Promise<any> {
   return async () => {
     const contentType = req.context.contentType as ContentType;
-    logger.trace('[parseBody] called with content type: %o', contentType);
+    const log = getLogger(MODULE, 'parseBody');
+    log.verbose('called with content type: %o', contentType);
     const body = await (req.body as Promise<Buffer>|undefined);
     if (!body) {
-      logger.trace('[parseBody] no body to parse');
+      log.verbose('no body to parse');
       return undefined;
     }
     try {
       if (contentType.isJson()) {
-        logger.trace('[parseBody] parsing JSON body: %s', body.toString());
+        log.verbose('parsing JSON body: %s', body.toString());
         return JSON.parse(body.toString());
       } else if (contentType.isYaml()) {
-        logger.trace('[parseBody] parsing YAML body: %s', body.toString());
+        log.verbose('parsing YAML body: %s', body.toString());
         return yaml.parse(body.toString());
       } else if (contentType.isToml()) {
-        logger.trace('[parseBody] parsing TOML body: %s', body.toString());
+        log.verbose('parsing TOML body: %s', body.toString());
         return toml.parse(body.toString());
       } else if (contentType.isFormUrlEncoded()) {
-        logger.trace('[parseBody] parsing Form URL Encoded body: %s', body.toString());
+        log.verbose('parsing Form URL Encoded body: %s', body.toString());
         return Object.fromEntries(new URLSearchParams(body.toString()));
       } else {
         // all other things are returned as is, including plain text, XML, HTML,
         // multipart form data, and images (which should be sent as base64
         // encoded strings)
-        logger.trace('[parseBody] returning raw body: %s', body.toString());
+        log.verbose('returning raw body: %s', body.toString());
         return body;
       }
     } catch (e) {
-      logger.error('[parseBody] Failed to parse request body: %o', e);
+      log.error('Failed to parse request body: %o', e);
       throw new Error(`Failed to parse request body: ${stringify(e)}`);
     }
   }
@@ -68,17 +61,18 @@ export function parseBody(req: Request<AppMeta>):() => Promise<any> {
 export function isSupportedMediaType(
   req: Request<AppMeta>, contentType?: ContentType
 ): boolean {
-  logger.trace('[isSupportedMediaType] Checking if content type is supported: %o', contentType);
+  const log = getLogger(MODULE, 'isSupportedMediaType');
+  log.verbose('Checking if content type is supported: %o', contentType);
   if (!(contentType?.type)) {
     return req.context.contentTypes.allowMissingContentType;
   }
   const ct = req.context?.contentTypes;
-  logger.trace('[isSupportedMediaType]   --> Supported types: %s', JSON.stringify(ct?.supportedTypes));
+  log.verbose('Supported types: %s', JSON.stringify(ct?.supportedTypes));
   if (ct?.supportedTypes === undefined || ct?.supportedTypes.length === 0) {
-    logger.trace('[isSupportedMediaType]   --> supported by default since no supported types are configured');
+    log.verbose('Supported by default since no supported types are configured');
     return true;
   }
-  logger.trace('[isSupportedMediaType]   --> checking if content type is among supported types');
+  log.verbose('Checking if content type is among supported types');
   const acceptableTypes = ct.supportedTypes?.map((t: string) => {
     if (t.includes('/')) {
       return t;
@@ -87,10 +81,10 @@ export function isSupportedMediaType(
     }
   });
   if (contentType?.type && acceptableTypes?.length)  {
-    logger.trace('[isSupportedMediaType]   --> content type is %s, acceptable types are: %o', contentType.type, acceptableTypes);
+    log.verbose('Content type is %s, acceptable types are: %o', contentType.type, acceptableTypes);
     return acceptableTypes.includes(contentType.type);
   } else {
-    logger.trace('[isSupportedMediaType]   --> content type is not specified or no acceptable types are defined, defaulting to true');
+    log.verbose('Content type is not specified or no acceptable types are defined, defaulting to true');
     return true;
   }
 }
@@ -104,7 +98,8 @@ export function parseContentMiddleware(app: Application<AppMeta>) {
       await next();
       return;
     }
-    logger.trace('[parseContentMiddleware] running parseContentMiddleware on a %s request', req.method);
+    const log = getLogger(MODULE, 'parseContentMiddleware');
+    log.verbose('Running parseContentMiddleware on a %s request', req.method);
 
     let contentTypeString = req.headers['content-type'] || null;
     if (Array.isArray(contentTypeString)) {
@@ -131,7 +126,7 @@ export function parseContentMiddleware(app: Application<AppMeta>) {
 
     const contentTypeAsString = contentTypeString as string;
 
-    logger.trace('[parseContentMiddleware] Received Content-Type header: %s', contentTypeAsString);
+    log.verbose('Received Content-Type header: %s', contentTypeAsString);
 
     const contentType = {
       type: contentTypeAsString?.split(';')[0].trim() || '',
@@ -142,17 +137,17 @@ export function parseContentMiddleware(app: Application<AppMeta>) {
       }, {} as Record<string, string>)
     } as Partial<ContentType>;
 
-    logger.trace('[parseContentMiddleware] Parsed content type: %o', contentType);
+    log.verbose('Parsed content type: %o', contentType);
 
     if (!isSupportedMediaType(req, contentType as ContentType)) {
-      logger.trace('[parseContentMiddleware] Content type %s is not supported, rejecting request', contentType.type);
+      log.verbose('Content type %s is not supported, rejecting request', contentType.type);
       res.status(415).json({
         error: `Content-Type ${contentType.type} is not acceptable`
       });
       return;
     }
 
-    logger.trace('[parseContentMiddleware] Content type is supported, proceeding to parse body');
+    log.verbose('Content type is supported, proceeding to parse body');
 
     const textOrApp = (t: string) => {
       return !!(contentType.type &&
@@ -165,7 +160,7 @@ export function parseContentMiddleware(app: Application<AppMeta>) {
       return !!(contentType.type && contentType?.type.startsWith(t));
     }
 
-    logger.trace('[parseContentMiddleware] Parsed content type: %o', contentType);
+    log.verbose('Parsed content type: %o', contentType);
 
     contentType.isMultipart = () => typeStartsWith('multipart/');
     contentType.isJson = () => typeIs('application/json');

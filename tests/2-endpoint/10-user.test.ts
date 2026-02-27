@@ -1,4 +1,4 @@
-import { suite, before, after, it } from 'node:test';
+import { suite, before, after } from 'node:test';
 import { Application } from 'filamentjs';
 import getPort from 'get-port';
 import fetch from 'node-fetch';

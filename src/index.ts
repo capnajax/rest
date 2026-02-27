@@ -7,7 +7,7 @@ import { registerErrorHandlers } from './handlers/errors.js';
 import { registerTransformers } from './handlers/transforms.js';
 import { registerFinalizers } from './handlers/finalizers.js';
 import { AppMeta } from './meta/meta-types.js';
-import { deepClone, deepMerge } from './tools.ts';
+import { deepClone, deepMerge } from './util/tools.ts';
 
 export async function start(
   o?:Partial<AppConfig>,

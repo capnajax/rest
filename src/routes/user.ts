@@ -1,19 +1,8 @@
 import { Application } from 'filamentjs';
-import { pino } from 'pino';
 import sessionManager from '@/data/sessions.ts';
 import { SESSION_REQUIRED } from '@/meta/defaults.ts';
 import { AppMeta } from '@/meta/meta-types.ts';
 import { Session } from 'node:inspector';
-
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'trace',
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-    },
-  },
-});
 
 async function sessionGet(req: any, res: any) {
   res.json({

@@ -1,0 +1,25 @@
+---
+queryBook:
+  user:
+    createUser:
+      description: Create a new user
+      query: |
+        INSERT INTO people (
+          username, displayname, realm_id, isauthor, info
+        ) VALUES (
+          $1::STRING,
+          $2::STRING,
+          (SELECT id FROM realms WHERE name = $3::STRING),
+          $4::BOOLEAN,
+          '{}'
+        ) RETURNING id;
+    getUser:
+      # Conventionally, getX gets X by its name, while getXById gets X by its id.
+      description: Get a user by their username
+      query: |
+        SELECT * FROM people WHERE username = $1;
+    getUserById:
+      description: Get a user by their ID
+      query: |
+        SELECT * FROM people WHERE id = $1;
+    

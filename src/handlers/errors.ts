@@ -1,20 +1,19 @@
 import { Application } from 'filamentjs';
 import { AppMeta } from '@/meta/meta-types.ts';
-import { pino } from 'pino';
+import { getLogger } from '@/util/logger.ts';
 
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-});
+const MODULE = 'h.errors';
 
 /**
  * Register error handlers
  */
 export function registerErrorHandlers(app: Application<AppMeta>) {
   app.onError(async (err, req, res) => {
+    const log = getLogger(MODULE, 'onError');
     const level = req.endpointMeta.logging.level;
 
     if (level === 'debug' || level === 'error') {
-      logger.error({
+      log.error({
         error: err.message,
         stack: err.stack,
         method: req.method,
