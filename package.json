@@ -12,6 +12,7 @@
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts",
+    "generate": "tsx src/data/generator/index.ts",
     "type-check": "tsc --noEmit",
     "depcheck": "depcheck",
     "docker:build": "docker build -t rest .",

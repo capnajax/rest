@@ -178,3 +178,24 @@ export async function query(
     returnConnection(connection);
   }
 }
+
+/**
+ * Execute a raw SQL string with optional connection. If no connection is
+ * provided one is acquired from the pool and released automatically.
+ * Use this for ORM-generated queries that are not in queries.yaml.
+ */
+export async function sqlQuery(
+  sql: string,
+  parameters: any[] = [],
+  connection?: PoolClient
+): Promise<QueryResult> {
+  if (connection) {
+    return queryWithConnection(connection, sql, parameters);
+  }
+  const conn = await getConnection();
+  try {
+    return queryWithConnection(conn, sql, parameters);
+  } finally {
+    returnConnection(conn);
+  }
+}

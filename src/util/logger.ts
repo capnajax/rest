@@ -72,7 +72,6 @@ const formats: Record<string, FormatType> = {
         }[level] || '[      ]'
 
         return `${timestamp} ${levelTag} ${context} ${message}`;
-
       })
     ),
   colored: (mmp: MMP, levelConfig: LoggerLevelConfig) =>
@@ -84,14 +83,14 @@ const formats: Record<string, FormatType> = {
         const context = buildContextString(mmp, levelConfig);
 
         const levelTag:string = {
-          error:   '\x1b[97;1m[\x1b[91;1;4m#ERROR\x1b[0;97m]',
-          warn:    '\x1b[97;1m[\x1b[94;1m*warn*\x1b[0;97m]',
-          info:    '\x1b[97m[\x1b[92;1m info \x1b[0;97m]',
-          http:    '\x1b[97m[\x1b[96;1m http \x1b[0;97m]',
-          debug:   '\x1b[37m[\x1b[35m  dbg \x1b[37m]',
-          verbose: '\x1b[90m[\x1b[37m   vb \x1b[90m]',
-          silly:   '\x1b[90m[\x1b[90m    s \x1b[90m]',
-        }[level] || '\x1b[37m[\x1b[90m      \x1b[37m]'
+          error:   '\x1b[97;1m[\x1b[91;1;4m#ERROR\x1b[0;97m]\x1b[0m',
+          warn:    '\x1b[97;1m[\x1b[94;1m*warn*\x1b[0;97m]\x1b[0m',
+          info:    '\x1b[97m[\x1b[92;1m info \x1b[0;97m]\x1b[0m',
+          http:    '\x1b[97m[\x1b[96;1m http \x1b[0;97m]\x1b[0m',
+          debug:   '\x1b[37m[\x1b[35m  dbg \x1b[37m]\x1b[0m',
+          verbose: '\x1b[90m[\x1b[37m   vb \x1b[90m]\x1b[0m',
+          silly:   '\x1b[90m[\x1b[90m    s \x1b[90m]\x1b[0m',
+        }[level] || '\x1b[37m[\x1b[90m      \x1b[37m]\x1b[0m';
 
         return `${timestamp} ${levelTag} ${context}${reset} ${message}`;
       })

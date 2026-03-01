@@ -1,12 +1,14 @@
 import { Application, createApp } from 'filamentjs';
+
 import { defaultMeta } from './meta/defaults.js';
 import { AppConfig, appConfig, validateConfig } from './config/app.js';
+import { runSchemaMigrations } from './data/schema-migration.js';
+import { registerErrorHandlers } from './handlers/errors.js';
+import { registerFinalizers } from './handlers/finalizers.js';
+import { registerTransformers } from './handlers/transforms.js';
+import { AppMeta } from './meta/meta-types.js';
 import { registerMiddleware } from './middleware/index.js';
 import { registerRoutes } from './routes/index.js';
-import { registerErrorHandlers } from './handlers/errors.js';
-import { registerTransformers } from './handlers/transforms.js';
-import { registerFinalizers } from './handlers/finalizers.js';
-import { AppMeta } from './meta/meta-types.js';
 import { deepClone, deepMerge } from './util/tools.ts';
 
 export async function start(
@@ -18,6 +20,13 @@ export async function start(
 
   // Validate configuration
   validateConfig();
+
+  // Run schema migrations in the background; registers the 'schema-update'
+  // readiness token and clears it when complete.
+  runSchemaMigrations().catch((err) => {
+    console.error('Fatal: schema migration failed:', err);
+    process.exit(1);
+  });
 
   // Create Filament application
   const app = createApp(defaultMeta);

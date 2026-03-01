@@ -1,0 +1,52 @@
+# ORM Code Generator Configuration
+# Run `npm run generate` after any schema change to regenerate base files.
+
+# Tables loaded at startup as immutable ReferenceData.
+# These generate ImmutableRow subclasses with no save() or delete().
+referenceTables:
+  - content_types
+  - db_properties
+  - form_factors
+  - realms
+
+# Junction/link tables that are transparent at the row level.
+# These are used only inside generated JOIN queries; no row class is generated.
+linkTables:
+  - article_attachments
+  - article_tag
+
+# Array relationships to generate on mutable row classes.
+# Each entry under a table name creates a RelationshipArray property and
+# is loaded by loadSimple() (loadWith: simple) or only loadAll() (loadWith: all).
+#
+# kind: link   — many-to-many via a junction table
+# kind: direct — one-to-many via a foreign key on the target table
+relationships:
+  articles:
+    - name: attachments
+      kind: link
+      linkTable: article_attachments
+      sourceFk: article_id
+      targetFk: media_id
+      targetTable: media
+      loadWith: simple
+    - name: permalinks
+      kind: direct
+      foreignKey: article_id
+      targetTable: permalinks
+      loadWith: all
+    - name: tags
+      kind: link
+      linkTable: article_tag
+      sourceFk: article_id
+      targetFk: tag_id
+      targetTable: tags
+      loadWith: simple
+  people:
+    - name: articles
+      kind: direct
+      foreignKey: author_id
+      targetTable: articles
+      loadWith: simple
+output:
+  directory: src/data/generated
