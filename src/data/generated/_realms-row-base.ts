@@ -1,9 +1,9 @@
 // AUTO-GENERATED — do not edit. Run `npm run generate` to regenerate.
 // Reference table: realms
 
-import { ImmutableColumn } from '../orm/immutable-column.ts';
-import { ImmutableRow }    from '../orm/immutable-row.ts';
-import { ReferenceData }   from '../orm/reference-data.ts';
+import { Column, TypeValidators } from '../orm/column.js';
+import { ImmutableRow } from '../orm/immutable-row.js';
+import { ReferenceData }   from '../orm/reference-data.js';
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -20,15 +20,15 @@ export class _RealmsRowBase extends ImmutableRow {
 
   // ── Columns ──────────────────────────────────────────────────────────────
 
-  readonly id = new ImmutableColumn<number>('id', null as unknown as number);
-  readonly name = new ImmutableColumn<string>('name', null as unknown as string);
+  readonly id = new Column<number>('id', TypeValidators.number, true);  // number
+  readonly name = new Column<string>('name', TypeValidators.string, true);  // string
 
   // ── Construction ─────────────────────────────────────────────────────────
 
   _fromRecord(data: Record<string, unknown>): this {
     const row = new (this.constructor as new () => this)();
-    (row as any).id = new ImmutableColumn('id', (data['id'] ?? null) as number | null);
-    (row as any).name = new ImmutableColumn('name', (data['name'] ?? null) as string | null);
+    row.id.assumeClean((data['id'] ?? null) as number | null);
+    row.name.assumeClean((data['name'] ?? null) as string | null);
     row._registerColumns(
       row.id,
       row.name,

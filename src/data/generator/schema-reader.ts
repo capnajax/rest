@@ -1,7 +1,7 @@
-import { Pool } from 'pg';
-import { pgTypeToTs, pgArrayUdtToTs } from './type-mapper.ts';
-import type { OrmConfig }             from './config.ts';
-import type { TableInfo, ColumnInfo } from './types.ts';
+import { Pool, PoolClient } from 'pg';
+import { pgTypeToTs, pgArrayUdtToTs } from './type-mapper.js';
+import type { OrmConfig }             from './config.js';
+import type { TableInfo, ColumnInfo } from './types.js';
 
 // ── Raw rows from information_schema ──────────────────────────────────────
 
@@ -70,7 +70,7 @@ export async function readSchema(
   }
 }
 
-async function listTables(client: any): Promise<string[]> {
+async function listTables(client: PoolClient): Promise<string[]> {
   const result = await client.query<{ table_name: string }>(`
     SELECT table_name
     FROM   information_schema.tables
@@ -81,7 +81,7 @@ async function listTables(client: any): Promise<string[]> {
   return result.rows.map((r: { table_name: string }) => r.table_name);
 }
 
-async function readColumns(client: any, tableName: string): Promise<ColumnInfo[]> {
+async function readColumns(client: PoolClient, tableName: string): Promise<ColumnInfo[]> {
   const [colResult, pkResult] = await Promise.all([
     client.query<RawColumn>(`
       SELECT column_name, data_type, udt_name, is_nullable, column_default
@@ -109,7 +109,7 @@ async function readColumns(client: any, tableName: string): Promise<ColumnInfo[]
   });
 }
 
-async function readPkSet(client: any, tableName: string): Promise<Set<string>> {
+async function readPkSet(client: PoolClient, tableName: string): Promise<Set<string>> {
   const result = await client.query<{ column_name: string }>(`
     SELECT kcu.column_name
     FROM   information_schema.table_constraints   tc
@@ -123,7 +123,7 @@ async function readPkSet(client: any, tableName: string): Promise<Set<string>> {
   return new Set(result.rows.map((r: { column_name: string }) => r.column_name));
 }
 
-async function readPrimaryKey(client: any, tableName: string): Promise<string | null> {
+async function readPrimaryKey(client: PoolClient, tableName: string): Promise<string | null> {
   const pkSet = await readPkSet(client, tableName);
   const [first] = pkSet;
   return first ?? null;

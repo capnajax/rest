@@ -1,7 +1,7 @@
 import { Application } from 'filamentjs';
-import sessionManager from '@/data/sessions.ts';
-import { SESSION_REQUIRED } from '@/meta/defaults.ts';
-import { AppMeta } from '@/meta/meta-types.ts';
+import sessionManager from '../data/sessions.js';
+import { SESSION_REQUIRED } from '../meta/defaults.js';
+import { AppMeta } from '../meta/meta-types.js';
 import { Session } from 'node:inspector';
 
 async function sessionGet(req: any, res: any) {

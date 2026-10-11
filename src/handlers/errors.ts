@@ -1,6 +1,6 @@
-import { Application } from 'filamentjs';
-import { AppMeta } from '@/meta/meta-types.ts';
-import { getLogger } from '@/util/logger.ts';
+import { Application, HttpError } from 'filamentjs';
+import { AppMeta } from '../meta/meta-types.js';
+import { getLogger } from '../util/logger.js';
 
 const MODULE = 'h.errors';
 
@@ -21,9 +21,10 @@ export function registerErrorHandlers(app: Application<AppMeta>) {
       });
     }
 
-    if (!res.headersSent) {
-      res.status(500).json({
-        error: 'Internal Server Error',
+    if (!res.headers.frozen) {
+      const statusCode = err instanceof HttpError ? err.statusCode : 500;
+      res.status(statusCode).json({
+        error: statusCode < 500 ? err.message : 'Internal Server Error',
         message: process.env.NODE_ENV === 'development' ? err.message : undefined,
       });
     }

@@ -2,7 +2,7 @@
 // The generator will NOT overwrite this file.
 // Add domain-specific methods, computed properties, and custom queries here.
 
-import { _AnalyticsRecordsRowBase } from '../generated/_analytics-records-row-base.ts';
+import { _AnalyticsRecordsRowBase } from '../generated/_analytics-records-row-base.js';
 
 export class AnalyticsRecordsRow extends _AnalyticsRecordsRowBase {
 }

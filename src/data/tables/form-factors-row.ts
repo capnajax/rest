@@ -3,7 +3,7 @@
 // Add domain-specific lookup helpers here, e.g.:
 //   static byCode(code: string) { return ReferenceData.all(FormFactorsRow).find(...) }
 
-import { _FormFactorsRowBase } from '../generated/_form-factors-row-base.ts';
+import { _FormFactorsRowBase } from '../generated/_form-factors-row-base.js';
 
 export class FormFactorsRow extends _FormFactorsRowBase {
 }

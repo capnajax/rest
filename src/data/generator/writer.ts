@@ -1,10 +1,10 @@
 import * as fs   from 'fs';
 import * as path from 'path';
-import type { TableInfo } from './types.ts';
+import type { TableInfo } from './types.js';
 import {
   generateMutableBase, generateImmutableBase,
   generateMutableStub, generateImmutableStub,
-} from './template.ts';
+} from './template.js';
 
 /**
  * Writes all generated base files to the output directory, and extension
@@ -69,7 +69,7 @@ export function writeGeneratedFiles(
 
 function writeBarrel(tables: TableInfo[], outputDir: string): void {
   const lines = tables.map(t => {
-    const fileName = `_${toKebabCase(t.tableName)}-row-base.ts`;
+    const fileName = `_${toKebabCase(t.tableName)}-row-base.js`;
     const cls      = t.isReference
       ? `_${toPascalCase(t.tableName)}RowBase`
       : `_${toPascalCase(t.tableName)}RowBase`;

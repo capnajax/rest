@@ -1,9 +1,9 @@
 import type { PoolClient } from 'pg';
-import { getConnection, returnConnection, queryWithConnection } from '../query.ts';
-import { Column } from './column.ts';
-import { RelationshipArray } from './relationship-array.ts';
-import { getRowClass } from './row-registry.ts';
-import type { RelationshipDef, MutableRowStatics } from './types.ts';
+import { getConnection, returnConnection, queryWithConnection } from '../query.js';
+import { Column } from './column.js';
+import { RelationshipArray } from './relationship-array.js';
+import { getRowClass } from './row-registry.js';
+import type { RelationshipDef, MutableRowStatics } from './types.js';
 
 /**
  * Abstract base for all generated mutable row classes.
@@ -26,6 +26,25 @@ export abstract class MutableRow {
   /** Relationship arrays indexed by relationship name — set by _loadRelationship(). */
   protected readonly _relationships = new Map<string, RelationshipArray<any>>();
 
+  constructor() {}
+
+  /**
+   * Initialize the row with data. Call this after _registerColumns() in subclass constructors.
+   * @internal
+   */
+  protected _initialize(
+    initialData?: Record<string, unknown>,
+    assumeFromDb: boolean = false
+  ): void {
+    if (initialData) {
+      // Initialize from record
+      this._hydrate(initialData);
+      if (assumeFromDb) {
+        this._markLoaded();
+      }
+    }
+  }
+
   // ── State ─────────────────────────────────────────────────────────────────
 
   /** True when this row has not yet been saved to the database. */
@@ -42,6 +61,41 @@ export abstract class MutableRow {
       if (rel.isDirty) return true;
     }
     return false;
+  }
+
+  // ── Value management ──────────────────────────────────────────────────────
+
+  toJSON(): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+
+    for (const [name, col] of this._columnMap.entries()) {
+      const value = col.toJSON();
+      if (value !== undefined) {
+        result[name] = value;
+      }
+    }
+
+    for (const [name, rel] of this._relationships.entries()) {
+      const value = rel.toJSON();
+      if (value !== undefined) {
+        result[name] = value;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Set a column value and mark it as clean (presumed to match database state).
+   * Useful when creating row instances for existing objects where you know
+   * certain values already exist in the database.
+   */
+  assumeClean(columnName: string, value: unknown): void {
+    const col = this._columnMap.get(columnName);
+    if (!col) {
+      throw new Error(`Column '${columnName}' not found on this row`);
+    }
+    col.assumeClean(value as any);
   }
 
   // ── Registration (called in generated constructor) ────────────────────────
@@ -65,9 +119,17 @@ export abstract class MutableRow {
     }
   }
 
+  private _markPrimaryKeyImmutable(): void {
+    const statics = this.constructor as unknown as MutableRowStatics;
+    const pkColumn = statics.pkColumn;
+    const pkCol = this._columnMap.get(pkColumn);
+    if (pkCol) pkCol.immutable = true;
+  }
+
   /** @internal */
   _markLoaded(): void {
     this._isNew = false;
+    this._markPrimaryKeyImmutable();
   }
 
   // ── Loading ───────────────────────────────────────────────────────────────
@@ -93,11 +155,11 @@ export abstract class MutableRow {
     const keys   = Object.keys(where);
     const values = Object.values(where);
     const whereClause = keys
-      .map((k, i) => `"${k}" = $${i + 1}`)
+      .map((k, i) => `${k} = $${i + 1}`)
       .join(' AND ');
 
-    const sql = `SELECT ${columns.map(c => `"${c}"`).join(', ')} `
-      + `FROM "${tableName}" WHERE ${whereClause} LIMIT 1`;
+    const sql = `SELECT ${columns.map(c => `${c}`).join(', ')} `
+      + `FROM ${tableName} WHERE ${whereClause} LIMIT 1`;    
 
     const conn = connection ?? await getConnection();
     const ownConn = !connection;
@@ -107,7 +169,7 @@ export abstract class MutableRow {
       if (result.rows.length === 0) return false;
 
       this._hydrate(result.rows[0]);
-      this._isNew = false;
+      this._markLoaded();
 
       for (const rel of relationships) {
         const pkValue = this._pkValue(statics);
@@ -182,6 +244,7 @@ export abstract class MutableRow {
 
       this._commitAll();
       this._isNew = false;
+      this._markPrimaryKeyImmutable();
     } catch (err) {
       if (ownConn) await conn.query('ROLLBACK');
       throw err;

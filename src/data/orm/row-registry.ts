@@ -1,4 +1,4 @@
-import type { MutableRow } from './mutable-row.ts';
+import type { MutableRow } from './mutable-row.js';
 
 type MutableRowConstructor = new () => MutableRow;
 

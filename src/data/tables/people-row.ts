@@ -2,7 +2,7 @@
 // The generator will NOT overwrite this file.
 // Add domain-specific methods, computed properties, and custom queries here.
 
-import { _PeopleRowBase } from '../generated/_people-row-base.ts';
+import { _PeopleRowBase } from '../generated/_people-row-base.js';
 
 export class PeopleRow extends _PeopleRowBase {
 }

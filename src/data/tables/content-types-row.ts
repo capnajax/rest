@@ -3,7 +3,7 @@
 // Add domain-specific lookup helpers here, e.g.:
 //   static byCode(code: string) { return ReferenceData.all(ContentTypesRow).find(...) }
 
-import { _ContentTypesRowBase } from '../generated/_content-types-row-base.ts';
+import { _ContentTypesRowBase } from '../generated/_content-types-row-base.js';
 
 export class ContentTypesRow extends _ContentTypesRowBase {
 }

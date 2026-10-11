@@ -3,7 +3,7 @@
 // Add domain-specific lookup helpers here, e.g.:
 //   static byCode(code: string) { return ReferenceData.all(RealmsRow).find(...) }
 
-import { _RealmsRowBase } from '../generated/_realms-row-base.ts';
+import { _RealmsRowBase } from '../generated/_realms-row-base.js';
 
 export class RealmsRow extends _RealmsRowBase {
 }

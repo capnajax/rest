@@ -1,11 +1,11 @@
 // AUTO-GENERATED — do not edit. Run `npm run generate` to regenerate.
 // Table: media
 
-import { Column }            from '../orm/column.ts';
-import { RelationshipArray } from '../orm/relationship-array.ts';
-import { MutableRow }        from '../orm/mutable-row.ts';
-import { registerRow }       from '../orm/row-registry.ts';
-import type { ColumnSets, RelationshipDef } from '../orm/types.ts';
+import { Column, TypeValidators }            from '../orm/column.js';
+import { RelationshipArray } from '../orm/relationship-array.js';
+import { MutableRow }        from '../orm/mutable-row.js';
+import { registerRow }       from '../orm/row-registry.js';
+import type { ColumnSets, RelationshipDef } from '../orm/types.js';
 import type { PoolClient }   from 'pg';
 
 
@@ -35,17 +35,20 @@ export class _MediaRowBase extends MutableRow {
 
   // ── Scalar columns ───────────────────────────────────────────────────────
 
-  readonly id = new Column<number>('id');  // number
-  readonly article_id = new Column<number>('article_id');  // number
-  readonly filename = new Column<string>('filename');  // string
-  readonly last_update = new Column<Date>('last_update');  // Date
-  readonly data_b64 = new Column<string>('data_b64');  // string
+  readonly id = new Column<number>('id', TypeValidators.number, true);  // number
+  readonly article_id = new Column<number>('article_id', TypeValidators.number);  // number
+  readonly filename = new Column<string>('filename', TypeValidators.string);  // string
+  readonly last_update = new Column<Date>('last_update', TypeValidators.date);  // Date
+  readonly data_b64 = new Column<string>('data_b64', TypeValidators.string);  // string
 
   // ── Relationship arrays ──────────────────────────────────────────────────
 
   // (none)
 
-  constructor() {
+  constructor(
+    initialData?: Record<string, unknown>,
+    assumeFromDb: boolean = false
+  ) {
     super();
     this._registerColumns(
       this.id,
@@ -54,6 +57,7 @@ export class _MediaRowBase extends MutableRow {
       this.last_update,
       this.data_b64,
     );
+    this._initialize(initialData, assumeFromDb);
   }
 
   // ── Load methods ─────────────────────────────────────────────────────────
@@ -88,6 +92,24 @@ export class _MediaRowBase extends MutableRow {
       this._whereByPk(),
       connection,
     ).then(this._assertFound('loadAll'));
+  }
+
+  /** Loads all the column sets in the set specified. */
+  loadColumns(connection: PoolClient, columnSet?: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection?: PoolClient|'summary'|'simple'|'all', columnSet?: 'summary'|'simple'|'all'): Promise<void> {
+    if (typeof connection === 'string') {
+      columnSet = connection;
+      connection = undefined;
+    }
+    switch (columnSet) {
+      case 'all':
+        return this.loadAll(connection);
+      case 'simple':
+        return this.loadSimple(connection);
+      default:
+        return this.loadSummary(connection);
+    }
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

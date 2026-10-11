@@ -3,7 +3,7 @@
 // Add domain-specific lookup helpers here, e.g.:
 //   static byCode(code: string) { return ReferenceData.all(DbPropertiesRow).find(...) }
 
-import { _DbPropertiesRowBase } from '../generated/_db-properties-row-base.ts';
+import { _DbPropertiesRowBase } from '../generated/_db-properties-row-base.js';
 
 export class DbPropertiesRow extends _DbPropertiesRowBase {
 }

@@ -3,7 +3,7 @@ import {
   RoleInfoCalculator,
   EndpointMetaRoles,
   AppMeta
-} from './meta-types.ts';
+} from './meta-types.js';
 
 type RoleParameterType = string | RoleInfoCalculator |
   (Partial<EndpointMetaRoles>) | ((string|RoleInfoCalculator)[]);

@@ -1,4 +1,4 @@
-import type { MutableRow } from './mutable-row.ts';
+import type { MutableRow } from './mutable-row.js';
 
 /**
  * Tracks a collection of related rows, recording which items have been added
@@ -20,6 +20,13 @@ export class RelationshipArray<T extends MutableRow> {
 
   get items(): readonly T[] {
     return this._current;
+  }
+
+  /**
+   * JSON serialization returns only the current related items.
+   */
+  toJSON(): T[] {
+    return [...this._current];
   }
 
   get isDirty(): boolean {

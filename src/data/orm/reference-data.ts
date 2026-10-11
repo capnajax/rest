@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
-import { getConnection, returnConnection, queryWithConnection } from '../query.ts';
-import type { ImmutableRow } from './immutable-row.ts';
-import type { ImmutableRowStatics } from './types.ts';
+import { getConnection, returnConnection, queryWithConnection } from '../query.js';
+import type { ImmutableRow } from './immutable-row.js';
+import type { ImmutableRowStatics } from './types.js';
 
 type ImmutableRowConstructor<T extends ImmutableRow> = (new () => T) & ImmutableRowStatics;
 
@@ -73,7 +73,7 @@ export class ReferenceData {
   ): T | undefined {
     const pkColumn = ctor.pkColumn;
     return (ReferenceData._require(ctor) as T[]).find(
-      row => (row._columns.get(pkColumn)?.value) === id,
+      row => (row.getValue(pkColumn)) === id,
     );
   }
 
@@ -83,7 +83,7 @@ export class ReferenceData {
     name:  string,
   ): T | undefined {
     return (ReferenceData._require(ctor) as T[]).find(
-      row => (row._columns.get('name')?.value) === name,
+      row => (row.getValue('name')) === name,
     );
   }
 

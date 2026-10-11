@@ -14,9 +14,10 @@
 
 import * as path    from 'path';
 import * as url     from 'url';
-import { loadConfig }        from './config.ts';
-import { readSchema }        from './schema-reader.ts';
-import { writeGeneratedFiles } from './writer.ts';
+import { loadConfig }        from './config.js';
+import { readSchema }        from './schema-reader.js';
+import { writeGeneratedFiles } from './writer.js';
+import { parseArgs } from '../../args.js';
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
@@ -24,7 +25,7 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 async function main(): Promise<void> {
-  const dbUrl = process.env.DATABASE_URL;
+  const { dbUrl } = parseArgs();
   if (!dbUrl) {
     console.error('❌  DATABASE_URL environment variable is not set.');
     process.exit(1);
@@ -33,7 +34,7 @@ async function main(): Promise<void> {
   console.log('📖  Reading orm.config.yaml …');
   const config = loadConfig(PROJECT_ROOT);
 
-  console.log(`📡  Connecting to database ${dbUrl} …`);
+  console.log('📡  Connecting to database …');
   const tables = await readSchema(dbUrl, config);
 
   const mutable   = tables.filter(t => !t.isReference);

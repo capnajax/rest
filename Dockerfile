@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -16,18 +16,10 @@ COPY . .
 RUN npm run build
 
 # Runtime stage
-FROM node:20-alpine
+FROM node:24-alpine
 
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install production dependencies only
-RUN npm ci --production
-
-# Copy built files
-COPY --from=builder /app/dist ./dist
+# Install curl for healthcheck
+RUN apk add --no-cache curl
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -35,9 +27,20 @@ RUN addgroup -g 1001 -S nodejs && \
 
 USER nodejs
 
-EXPOSE 3000
+WORKDIR /app
+
+# Copy package files
+COPY --chown=nodejs:nodejs package*.json ./
+
+# Install production dependencies only
+RUN npm install --omit=dev
+
+# Copy built files
+COPY --from=builder /app/dist ./dist
+
+EXPOSE 1661
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD curl -sf http://localhost:3000/health || exit 1
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "--enable-source-maps", "dist/index.js"]

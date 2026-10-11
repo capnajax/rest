@@ -1,7 +1,7 @@
 import * as fs   from 'fs';
 import * as path from 'path';
 import * as yaml from 'yaml';
-import type { RelationshipInfo } from './types.ts';
+import type { RelationshipInfo } from './types.js';
 
 // ── Shape of orm.config.yaml ──────────────────────────────────────────────
 
@@ -9,6 +9,9 @@ interface RawRelationship {
   name:        string;
   kind:        'link' | 'direct';
   targetTable: string;
+  // loadWith: for deciding which relationships to load with which columns
+  //    simple: load with `loadSimple()`, e.g. when loading simple relationships
+  //    all: lad with `loadAll()`, e.g. load when loading all relationships
   loadWith?:   'simple' | 'all';
   // link
   linkTable?:  string;

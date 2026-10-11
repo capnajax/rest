@@ -4,9 +4,9 @@ import { fileURLToPath } from 'url';
 
 import { PoolClient } from 'pg';
 
-import { getConnection, returnConnection } from '@/data/query.ts';
-import { getLogger } from '@/util/logger.ts';
-import { registerToken, tokenReady } from '@/util/readiness.ts';
+import { getConnection, returnConnection } from './query.js';
+import { getLogger } from '../util/logger.js';
+import { registerToken, completeToken } from '../util/readiness.js';
 
 const MODULE = 'schema-migration';
 
@@ -132,7 +132,7 @@ export async function runSchemaMigrations(): Promise<void> {
       }
     }
 
-    tokenReady('schema-update');
+    completeToken('schema-update');
   } catch (err) {
     log.error('Schema migration failed:', err);
     throw err;

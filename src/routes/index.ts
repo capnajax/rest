@@ -1,15 +1,26 @@
 import { Application } from 'filamentjs';
-import { AppMeta } from '@/meta/meta-types.ts';
-import { PUBLIC, SESSIONLESS } from '@/meta/defaults.ts';
-import { userRoutes } from './user.ts';
-import { isReady } from '@/util/readiness.ts';
+
+import { PUBLIC, SESSIONLESS } from '../meta/defaults.js';
+import { getLogger } from '../util/logger.js';
+import { AppMeta, Context } from '../meta/meta-types.js';
+import { isReady } from '../util/readiness.js';
+import '../data/query.js'; // for side effects only
+
+import { articleRoutes } from './article.js';
+import { oauthRoutes } from './oauth.js';
+import { userRoutes } from './user.js';
+
+const MODULE= 'routes';
 
 /**
  * Register all routes
  */
-export function registerRoutes(app: Application<AppMeta>) {
+export function registerRoutes(app: Application<AppMeta, Context>) {
+  const log = getLogger(MODULE, 'registerRoutes');
+
   // Health check endpoint
   app.get('/health', PUBLIC, SESSIONLESS, async (req, res) => {
+    const log = getLogger(MODULE, 'GET', '/health');
     res.json({
       status: isReady() ? 'healthy' : 'not-ready',
       timestamp: new Date().toISOString()
@@ -26,5 +37,17 @@ export function registerRoutes(app: Application<AppMeta>) {
     });
   });
 
-  userRoutes(app);
+  function registerRouteGroup(
+    groupName: string,
+    registerFn: (app: Application<AppMeta, Context>) => void
+  ) {
+    log.info(`Registering ${groupName} routes`);
+    registerFn(app);
+  }
+
+  registerRouteGroup('article', articleRoutes);
+  registerRouteGroup('oauth', oauthRoutes);
+  registerRouteGroup('user', userRoutes);
+
+  log.info('All routes registered');
 }

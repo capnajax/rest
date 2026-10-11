@@ -1,35 +1,74 @@
+
 import { Application, createApp } from 'filamentjs';
+import {
+  createStandaloneStore as createRateLimitStore,
+  SetupOptions as RateLimitSetupOptions,
+  setup as setupRateLimit
+} from '@filamentjs/rate-limiting';
+import {
+  setup as setupRequestLogging
+} from '@filamentjs/request-logging';
 
 import { defaultMeta } from './meta/defaults.js';
-import { AppConfig, appConfig, validateConfig } from './config/app.js';
+import { AppConfig, appConfig, appConfigAsync } from './config/app.js';
 import { runSchemaMigrations } from './data/schema-migration.js';
 import { registerErrorHandlers } from './handlers/errors.js';
 import { registerFinalizers } from './handlers/finalizers.js';
 import { registerTransformers } from './handlers/transforms.js';
-import { AppMeta } from './meta/meta-types.js';
-import { registerMiddleware } from './middleware/index.js';
+import { AppMeta, Context } from './meta/meta-types.js';
+import { registerMiddleware } from './routes/middleware/index.js';
 import { registerRoutes } from './routes/index.js';
-import { deepClone, deepMerge } from './util/tools.ts';
+import { initializeLogger } from './util/logger.js';
+import parseArgs, { parsedArgs } from './args.js';
 
 export async function start(
   o?:Partial<AppConfig>,
   portCallback?: (port: number) => void
 ): Promise<Application<AppMeta>> {
 
-  let config = o ? deepMerge(appConfig, o) : deepClone(appConfig) as AppConfig;
+  // Parse CLI args / envs for overrides like --config and --port
+  parseArgs(o);
 
-  // Validate configuration
-  validateConfig();
+  // If one or more config files were provided and they contain logging
+  // configuration, prefer that. Otherwise, if configFiles were provided,
+  // pass the first filename to initializeLogger so it can load from disk.
+  initializeLogger((await appConfigAsync()).debug);
 
-  // Run schema migrations in the background; registers the 'schema-update'
-  // readiness token and clears it when complete.
-  runSchemaMigrations().catch((err) => {
-    console.error('Fatal: schema migration failed:', err);
-    process.exit(1);
-  });
+  // Run schema migrations in the background only if the database is configured.
+  if (parsedArgs.dbUrl) {
+    runSchemaMigrations().catch((err) => {
+      console.error('Fatal: schema migration failed:', err);
+      process.exit(1);
+    });
+  } else {
+    console.info('DATABASE_URL not set; skipping schema migrations.');
+  }
 
   // Create Filament application
-  const app = createApp(defaultMeta);
+  const app = createApp(defaultMeta, {} as Context);
+
+  //
+  //  Register filament policies
+  //
+
+  const rateLimitOptions:RateLimitSetupOptions  = await
+    (async () => {
+      let config = (await appConfigAsync()).policies?.rateLimiting;
+
+      if (!config) {
+        throw new Error('Rate limiting config not defined');
+      }
+
+      return {
+        defaultPlan: config.defaultPlan,
+        plans: config.plans,
+        resolveSubject: () => '_web',
+        store: createRateLimitStore(config.store || { maxEntries: 100_000})
+      };
+    })();
+
+  setupRateLimit(app, rateLimitOptions);
+  setupRequestLogging(app); 
 
   // Register middleware
   registerMiddleware(app);
@@ -55,16 +94,14 @@ export async function start(
     process.exit(0);
   });
 
-  // Start server
-  app.listen(await config.port)
-    .then((actualPort) => {
-      console.log(`🔥 Filament server running on http://localhost:${actualPort}`);
-      console.log(`   Environment: ${config.nodeEnv}`);
-      console.log(`   Log level: ${config.logLevel}`);
-      if (portCallback) {
-        portCallback(actualPort);
-      }
-    });
+  // Start server and wait for the selected port to be bound before returning.
+  const actualPort = await app.listen(appConfig().port);
+  console.log(`🔥 Filament server running on http://localhost:${actualPort}`);
+  console.log(`   Environment: ${appConfig().nodeEnv}`);
+  console.log(`   Log level: \n${JSON.stringify(appConfig().debug.logging, null, 2).replace(/^/gm, '     ')}`);
+  if (portCallback) {
+    portCallback(actualPort);
+  }
 
   return app;
 }

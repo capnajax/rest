@@ -1,11 +1,11 @@
 // AUTO-GENERATED — do not edit. Run `npm run generate` to regenerate.
 // Table: analytics_records
 
-import { Column }            from '../orm/column.ts';
-import { RelationshipArray } from '../orm/relationship-array.ts';
-import { MutableRow }        from '../orm/mutable-row.ts';
-import { registerRow }       from '../orm/row-registry.ts';
-import type { ColumnSets, RelationshipDef } from '../orm/types.ts';
+import { Column, TypeValidators }            from '../orm/column.js';
+import { RelationshipArray } from '../orm/relationship-array.js';
+import { MutableRow }        from '../orm/mutable-row.js';
+import { registerRow }       from '../orm/row-registry.js';
+import type { ColumnSets, RelationshipDef } from '../orm/types.js';
 import type { PoolClient }   from 'pg';
 
 
@@ -41,23 +41,26 @@ export class _AnalyticsRecordsRowBase extends MutableRow {
 
   // ── Scalar columns ───────────────────────────────────────────────────────
 
-  readonly id = new Column<number>('id');  // number
-  readonly date = new Column<Date>('date');  // Date
-  readonly ip = new Column<string>('ip');  // string | null
-  readonly cookie = new Column<string>('cookie');  // string | null
-  readonly method = new Column<string>('method');  // string
-  readonly pathname = new Column<string>('pathname');  // string
-  readonly url = new Column<string>('url');  // string | null
-  readonly request_headers = new Column<Record<string, unknown>>('request_headers');  // Record<string, unknown> | null
-  readonly response_headers = new Column<Record<string, unknown>>('response_headers');  // Record<string, unknown> | null
-  readonly status_code = new Column<string>('status_code');  // string | null
-  readonly latency_ms = new Column<number>('latency_ms');  // number | null
+  readonly id = new Column<number>('id', TypeValidators.number, true);  // number
+  readonly date = new Column<Date>('date', TypeValidators.date);  // Date
+  readonly ip = new Column<string>('ip', TypeValidators.stringOrNull);  // string | null
+  readonly cookie = new Column<string>('cookie', TypeValidators.stringOrNull);  // string | null
+  readonly method = new Column<string>('method', TypeValidators.string);  // string
+  readonly pathname = new Column<string>('pathname', TypeValidators.string);  // string
+  readonly url = new Column<string>('url', TypeValidators.stringOrNull);  // string | null
+  readonly request_headers = new Column<Record<string, unknown>>('request_headers', TypeValidators.objectOrNull);  // Record<string, unknown> | null
+  readonly response_headers = new Column<Record<string, unknown>>('response_headers', TypeValidators.objectOrNull);  // Record<string, unknown> | null
+  readonly status_code = new Column<string>('status_code', TypeValidators.stringOrNull);  // string | null
+  readonly latency_ms = new Column<number>('latency_ms', TypeValidators.numberOrNull);  // number | null
 
   // ── Relationship arrays ──────────────────────────────────────────────────
 
   // (none)
 
-  constructor() {
+  constructor(
+    initialData?: Record<string, unknown>,
+    assumeFromDb: boolean = false
+  ) {
     super();
     this._registerColumns(
       this.id,
@@ -72,6 +75,7 @@ export class _AnalyticsRecordsRowBase extends MutableRow {
       this.status_code,
       this.latency_ms,
     );
+    this._initialize(initialData, assumeFromDb);
   }
 
   // ── Load methods ─────────────────────────────────────────────────────────
@@ -106,6 +110,24 @@ export class _AnalyticsRecordsRowBase extends MutableRow {
       this._whereByPk(),
       connection,
     ).then(this._assertFound('loadAll'));
+  }
+
+  /** Loads all the column sets in the set specified. */
+  loadColumns(connection: PoolClient, columnSet?: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection?: PoolClient|'summary'|'simple'|'all', columnSet?: 'summary'|'simple'|'all'): Promise<void> {
+    if (typeof connection === 'string') {
+      columnSet = connection;
+      connection = undefined;
+    }
+    switch (columnSet) {
+      case 'all':
+        return this.loadAll(connection);
+      case 'simple':
+        return this.loadSimple(connection);
+      default:
+        return this.loadSummary(connection);
+    }
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

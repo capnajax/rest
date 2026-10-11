@@ -1,15 +1,16 @@
 import winston, { level } from 'winston';
 import * as fs from 'fs';
-import { deepClone, deepMerge, isNil, omit } from './tools.ts';
+import { deepClone, deepMerge, isNil, omit } from './tools.js';
 import {
   FormatType, LoggerConfig, LoggerConfigLoggingObject, LoggerLevelConfig,
   LogTransportConfig, LogTransportFactoryOptions, MMP
-} from './logger-types.ts';
+} from './logger-types.js';
+import { registerToken, completeToken } from './readiness.js';
 
 const DEFAULT_LEVEL_CONFIG:LoggerLevelConfig = {
   level: 'info',
   format: 'colored',
-  transport: { type: 'console' } as LogTransportConfig,
+  transport: { type: 'console' } as LogTransportConfig
 }
 
 export interface HttpRequestLogData {
@@ -274,17 +275,21 @@ function buildLevelConfig(
 /**
  * Load configuration from file path or object
  */
-export function initializeLogger(configInput: string | LoggerConfig): void {
-  if (typeof configInput === 'string') {
-    // Load from file
-    const fileContent = fs.readFileSync(configInput, 'utf-8');
-    config = JSON.parse(fileContent);
-  } else {
+export function initializeLogger(configInput: LoggerConfig): void {
+  const token = 'logger-initialization';
+  registerToken(token);
+  try {
     config = configInput;
-  }
 
-  if (!config?.logging) {
-    throw new Error('Invalid logger configuration: missing "logging" key');
+    if (!config?.logging) {
+      throw new Error('Invalid logger configuration: missing "logging" key');
+    }
+
+    completeToken(token);
+
+  } catch (error) {
+    completeToken(token, false);
+    throw error;
   }
 }
 

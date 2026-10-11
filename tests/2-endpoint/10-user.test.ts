@@ -58,7 +58,9 @@ suite('Example Test', () => {
   };
 
   before(async () => {
-    app = await start({port: getPort()}, p => port = p);
+    console.error(`Starting test server...`);
+    app = await start({port: await getPort()}, p => port = p);
+    console.error(`Test server started on port ${port}`);
   });
 
   after(async () => {

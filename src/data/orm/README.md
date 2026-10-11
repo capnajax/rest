@@ -176,4 +176,183 @@ try {
 }
 ```
 
-Without a connection argument, `save()` and `delete()` manage their own transaction internally.
+For convenience, use the `inTransaction()` helper function which handles all the boilerplate:
+
+```typescript
+import { inTransaction } from '../query.js';
+
+await inTransaction(async (conn) => {
+  await article.save(conn);
+  await audit.save(conn);
+  return 'success';  // Optional return value
+});
+```
+
+The `inTransaction()` function automatically:
+
+- Acquires a connection from the pool
+- Begins a transaction
+- Executes your callback with the connection
+- Commits on success
+- Rolls back on error
+- Returns the connection to the pool
+- Re-throws any errors from your callback
+
+## Working with Rows
+
+### Loading a Single Row
+
+To load an existing row from the database, use the static factory methods on the row class:
+
+```typescript
+// Load by primary key (returns null if not found)
+const article = await ArticlesRow.findById(123);
+
+// Load by name column (if available, returns null if not found)
+const user = await PeopleRow.findByName('john_doe');
+```
+
+Alternatively, create a new instance, set the primary key, and call a load method:
+
+```typescript
+const article = new ArticlesRow();
+article.id.value = 123;
+await article.loadSimple();  // Loads scalar columns + simple relationships
+// or await article.loadAll();  // Loads everything
+```
+
+### Loading Multiple Rows
+
+For loading multiple rows, use the query system with `sqlQuery()` or predefined queries from `queries.yaml`:
+
+```typescript
+import { sqlQuery } from '../query.js';
+
+// Load all articles
+const result = await sqlQuery('SELECT * FROM articles');
+const articles = result.rows.map(row => {
+  const article = new ArticlesRow();
+  article._hydrate(row);
+  article._markLoaded();
+  return article;
+});
+
+// Using a predefined query
+const userRows = await query('user.getUser', ['john_doe']);
+```
+
+### Creating a New Row (New Object)
+
+To create a new row that doesn't exist in the database yet:
+
+```typescript
+const newArticle = new ArticlesRow();
+
+// Set required column values
+newArticle.title.value = 'My New Article';
+newArticle.author_id.value = 1;
+newArticle.content_type_id.value = 1;
+newArticle.uuid.value = 'unique-uuid-here';
+
+// Optional: set relationships
+// newArticle.tags?.add(existingTag);
+
+// Save to database (performs INSERT)
+await newArticle.save();
+```
+
+You can also initialize with default values:
+
+```typescript
+const newArticle = new ArticlesRow({
+  title: 'My New Article',
+  author_id: 1,
+  content_type_id: 1,
+  uuid: 'unique-uuid-here'
+});
+
+// Values are set but marked as dirty (will be included in INSERT)
+await newArticle.save();
+```
+
+### Creating a Row Instance for an Existing Object (Primary Key Known)
+
+When you know the primary key of an existing database row and want to work with it:
+
+```typescript
+const existingArticle = new ArticlesRow();
+
+// Set the primary key to the known value
+existingArticle.id.value = 123;
+
+// If you know other values already exist in the DB, mark them as clean
+// to avoid unnecessary UPDATEs
+existingArticle.assumeClean('title', 'Existing Title');
+existingArticle.assumeClean('author_id', 1);
+
+// Load any additional data you need
+await existingArticle.loadSimple();  // Loads remaining columns + relationships
+
+// Now you can modify and save
+existingArticle.title.value = 'Updated Title';  // This will be dirty
+await existingArticle.save();  // Performs UPDATE only for changed columns
+```
+
+Alternatively, you can work directly with column objects:
+
+```typescript
+const existingArticle = new ArticlesRow();
+existingArticle.id.value = 123;
+existingArticle.title.assumeClean('Existing Title');  // Direct column access
+await existingArticle.loadSimple();
+```
+
+Or initialize with known values from the database:
+
+```typescript
+// If you have data from a previous query or cache
+const dbData = { id: 123, title: 'Existing Title', author_id: 1 };
+const existingArticle = new ArticlesRow(dbData, true);  // true = assume from DB
+
+// Row is marked as loaded, values are clean
+// Load any additional data you need
+await existingArticle.loadSimple();  // Loads remaining columns + relationships
+```
+
+Note: For existing rows, it's often more convenient to use `findById()` which handles the loading in one step. Use these approaches when you want to avoid loading data you already know.
+
+## Runtime Type Checking
+
+When hydrating rows from database results or initializing with data, the ORM performs runtime type validation to ensure data integrity:
+
+```typescript
+// This will throw an error if title is not a string or null
+const article = new ArticlesRow({ title: 'Valid Title' });
+
+// This will throw an error if id is not a number
+const article = new ArticlesRow({ id: 'not-a-number' }, true);
+
+// Type validation happens during hydration from database queries too
+await article.loadSimple();  // Validates all loaded column types
+```
+
+### Supported Types
+
+The ORM validates these TypeScript types at runtime:
+
+- `number` - validates numeric values (not NaN)
+- `string` - validates string values  
+- `boolean` - validates boolean values
+- `Date` - validates Date instances
+- `Record<string, unknown>` - validates plain objects (not arrays or null)
+- Nullable variants: `number | null`, `string | null`, etc.
+
+### Error Handling
+
+Type validation errors throw descriptive errors:
+
+```text
+Type validation failed for column 'id': expected valid type, got string (not-a-number)
+```
+
+This helps catch data corruption or malformed API inputs early in development.

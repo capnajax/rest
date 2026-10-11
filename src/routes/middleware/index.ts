@@ -1,35 +1,21 @@
 import { Application } from 'filamentjs';
-import { AppMeta } from '@/meta/meta-types.ts';
-import sessionManager from '@/data/sessions.ts';
-import { parseContentMiddleware } from './parse-body.ts';
-import { getLogger } from '@/util/logger.ts';
+import { AppMeta, Context } from '../../meta/meta-types.js';
+import sessionManager from '../../data/sessions.js';
+import { parseContentMiddleware } from './parse-body.js';
+import { getLogger } from '../../util/logger.js';
 
 const MODULE = 'middleware';
 
 /**
  * Register all middleware
  */
-export function registerMiddleware(app: Application<AppMeta>) {
-
-  // Request logging middleware
-  app.use(async (req, res, next) => {
-    const log = getLogger(MODULE, 'requestLogging');
-    log.verbose('Logging request');
-    const level = req.endpointMeta.logging.level;
-
-    req.context._middleware = {
-      startTime: Date.now(),
-      request: `\x1b[36m${req.method} \x1b[33m${req.path}\x1b[0m`,
-    }
-
-    await next();
-  });
+export function registerMiddleware(app: Application<AppMeta, Context>) {
 
   // parse cookies middleware
-  app.use(async (req, res, next) => {
+  app.use(async (req, res) => {
     const log = getLogger(MODULE, 'parseCookies');
     log.verbose('Parsing cookies');
-    let cookieHeader = req.headers['cookie'];
+    let cookieHeader = req.headers.get('Cookie');
     req.context.cookies = {};
     if (cookieHeader) {
       if (!Array.isArray(cookieHeader)) {
@@ -39,15 +25,15 @@ export function registerMiddleware(app: Application<AppMeta>) {
         // Handle case where cookie header is a string
         header.split(';').forEach(cookie => {
           const [name, ...rest] = cookie.trim().split('=');
-          req.context.cookies[name] = rest.join('=');
+          (req.context.cookies as Record<string, string>)[name] =
+            rest.join('=');
         });
       }
     }
-    await next();
   });
 
   // Session management middleware
-  app.use(async (req, res, next) => {
+  app.use(async (req, res) => {
     const log = getLogger(MODULE, 'sessionManagement');
     log.verbose('Managing session. Policy: %o', 
       req.endpointMeta.sessionPolicy
@@ -56,13 +42,13 @@ export function registerMiddleware(app: Application<AppMeta>) {
     const newSession = async () => {
       log.verbose(' --> newSession');
       const session = await sessionManager.createSession(null);
-      res.setHeader('Set-Cookie',
+      res.headers.set('Set-Cookie',
         `session=${session.sessionId}; HttpOnly; Path=/;`);
     }
 
     const getSession = async () => {
       log.verbose(' --> getSession');
-      const sessionCookie = req.context.cookies.session;
+      const sessionCookie = req.context.cookies?.session;
       if (!sessionCookie) {
         log.verbose('   --> no session cookie found');
         return null;
@@ -93,9 +79,6 @@ export function registerMiddleware(app: Application<AppMeta>) {
     }
 
     log.verbose('session attached to context: %o', req.context.session?.serialize());
-
-    await next();
-
   });
 
   parseContentMiddleware(app);

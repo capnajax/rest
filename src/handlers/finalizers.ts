@@ -1,26 +1,33 @@
 import { Application } from 'filamentjs';
-import { AppMeta } from '@/meta/meta-types.ts';
-import { getLogger, HttpRequestLogData } from '@/util/logger.ts';
+import { AppMeta } from '../meta/meta-types.js';
+import { getLogger, HttpRequestLogData } from '../util/logger.js';
 
 const MODULE = 'h/finalizers';
 
 function logRequest(req: any, res: any) {
   const log = getLogger(MODULE, 'onFinalize');
-  const duration = Date.now() - (req._startTime || Date.now());
+  const middleware = req.context?._middleware;
+  const startTime = middleware?.startTime ?? req._startTime ?? Date.now();
+  const duration = Date.now() - startTime;
 
-  if (req.context._middleware) {
-    req.context._middleware.duration =
-      Date.now() - req.context._middleware.startTime;
+  if (middleware) {
+    middleware.duration = duration;
   }
 
-  const logData:HttpRequestLogData = {
+  const url = req.originalUrl || req.url || req.path || '/';
+
+  const logData: HttpRequestLogData = {
     method: req.method,
-    url: req.originalUrl || req.url,
+    url,
     statusCode: res.statusCode,
     durationMs: duration,
   };
 
-  log.http(logData);
+  const logDataStr = `${logData.method} ${logData.url} - ` +
+    `${logData.statusCode} (${logData.durationMs}ms)`;
+
+  log.info(logDataStr);
+  log.http(logDataStr);
 }
 
 /**

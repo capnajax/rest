@@ -29,7 +29,7 @@ relationships:
       sourceFk: article_id
       targetFk: media_id
       targetTable: media
-      loadWith: simple
+      loadWith: all
     - name: permalinks
       kind: direct
       foreignKey: article_id

@@ -28,7 +28,10 @@ export function deepMerge<T>(
     for (const key in source) {
       if (source[key] && typeof source[key] === 'object' &&
           !Array.isArray(source[key])) {
-        (result as any)[key] = deepMerge((result as any)[key], (source as any)[key]);
+        (result as any)[key] = deepMerge(
+          (result as any)[key] || {},
+          (source as any)[key]
+        );
       } else {
         (result as any)[key] = (source as any)[key];
       }

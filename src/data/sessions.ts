@@ -1,5 +1,5 @@
-import { getLogger } from "@/util/logger.ts";
-import { yieldToEventLoop } from "@/util/tools.ts";
+import { getLogger } from "../util/logger.js";
+import { yieldToEventLoop } from "../util/tools.js";
 
 const MANAGER_MODULE = 'd.sessions::SessionManager';
 const SESSION_MODULE = 'd.sessions::Session';

@@ -1,4 +1,4 @@
-import { ImmutableColumn } from './immutable-column.ts';
+import { Column } from './column.js';
 
 /**
  * Abstract base for all generated reference-table row classes.
@@ -9,7 +9,7 @@ import { ImmutableColumn } from './immutable-column.ts';
  *
  * Generated subclasses declare:
  *   - static tableName, pkColumn
- *   - typed ImmutableColumn<T> properties for every scalar column
+ *   - typed Column<T> properties for every scalar column
  *   - static _fromRecord(data: Record<string, unknown>): SubClass
  */
 export abstract class ImmutableRow {
@@ -27,11 +27,30 @@ export abstract class ImmutableRow {
   abstract _fromRecord(data: Record<string, unknown>): this;
 
   /** Convenience: get any column by name for generic iteration. */
-  protected _columns = new Map<string, ImmutableColumn<any>>();
+  protected _columns = new Map<string, Column<any>>();
 
-  protected _registerColumns(...cols: ImmutableColumn<any>[]): void {
+  toJSON(): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    for (const [name, col] of this._columns.entries()) {
+      const value = col.toJSON();
+      if (value !== undefined) {
+        result[name] = value;
+      }
+    }
+    return result;
+  }
+
+  protected _registerColumns(...cols: Column<any>[]): void {
     for (const col of cols) {
       this._columns.set(col.name, col);
     }
+  }
+
+  getValue(columnName: string): any {
+    const col = this._columns.get(columnName);
+    if (!col) {
+      throw new Error(`Column ${columnName} does not exist on ${this.constructor.name}`);
+    }
+    return col.value;
   }
 }

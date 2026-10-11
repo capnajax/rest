@@ -1,7 +1,28 @@
-import type { TableInfo, ColumnInfo, RelationshipInfo } from './types.ts';
+import type { TableInfo, ColumnInfo, RelationshipInfo } from './types.js';
 
 // Summary columns are fixed by convention across all tables.
 const SUMMARY_COLUMNS = ['id', 'name', 'title', 'created_at'];
+
+/**
+ * Maps TypeScript types to runtime type validators.
+ */
+function getTypeValidator(tsType: string, isNullable: boolean): string {
+  const baseValidator = (() => {
+    switch (tsType) {
+      case 'number': return 'TypeValidators.number';
+      case 'string': return 'TypeValidators.string';
+      case 'boolean': return 'TypeValidators.boolean';
+      case 'Date': return 'TypeValidators.date';
+      case 'Record<string, unknown>': return 'TypeValidators.object';
+      default: return 'undefined'; // No validation for unknown types
+    }
+  })();
+
+  if (isNullable && baseValidator !== 'undefined') {
+    return `${baseValidator}OrNull`;
+  }
+  return baseValidator;
+}
 
 /**
  * Generates the TypeScript source for a single generated base file.
@@ -32,7 +53,7 @@ export function generateMutableBase(table: TableInfo): string {
   const relImports = relatedTables.length > 0
     ? relatedTables.map(t => {
         const cls = toPascalCase(t);
-        return `import type { _${cls}RowBase } from './_${toKebabCase(t)}-row-base.ts';`;
+        return `import type { _${cls}RowBase } from './_${toKebabCase(t)}-row-base.js';`;
       }).join('\n')
     : '';
 
@@ -40,11 +61,11 @@ export function generateMutableBase(table: TableInfo): string {
 // AUTO-GENERATED — do not edit. Run \`npm run generate\` to regenerate.
 // Table: ${tableName}
 
-import { Column }            from '../orm/column.ts';
-import { RelationshipArray } from '../orm/relationship-array.ts';
-import { MutableRow }        from '../orm/mutable-row.ts';
-import { registerRow }       from '../orm/row-registry.ts';
-import type { ColumnSets, RelationshipDef } from '../orm/types.ts';
+import { Column, TypeValidators }            from '../orm/column.js';
+import { RelationshipArray } from '../orm/relationship-array.js';
+import { MutableRow }        from '../orm/mutable-row.js';
+import { registerRow }       from '../orm/row-registry.js';
+import type { ColumnSets, RelationshipDef } from '../orm/types.js';
 import type { PoolClient }   from 'pg';
 ${relImports ? '\n' + relImports : ''}
 
@@ -72,11 +93,15 @@ ${columnDecls}
   // ── Relationship arrays ──────────────────────────────────────────────────
 
 ${relDecls}
-  constructor() {
+  constructor(
+    initialData?: Record<string, unknown>,
+    assumeFromDb: boolean = false
+  ) {
     super();
     this._registerColumns(
 ${columns.map(c => `      this.${c.name}`).join(',\n')},
     );
+    this._initialize(initialData, assumeFromDb);
   }
 
   // ── Load methods ─────────────────────────────────────────────────────────
@@ -113,6 +138,24 @@ ${columns.map(c => `      this.${c.name}`).join(',\n')},
     ).then(this._assertFound('loadAll'));
   }
 
+  /** Loads all the column sets in the set specified. */
+  loadColumns(connection: PoolClient, columnSet?: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection?: PoolClient|'summary'|'simple'|'all', columnSet?: 'summary'|'simple'|'all'): Promise<void> {
+    if (typeof connection === 'string') {
+      columnSet = connection;
+      connection = undefined;
+    }
+    switch (columnSet) {
+      case 'all':
+        return this.loadAll(connection);
+      case 'simple':
+        return this.loadSimple(connection);
+      default:
+        return this.loadSummary(connection);
+    }
+  }
+
   // ── Static factory methods ────────────────────────────────────────────────
 
 ${factoryMethods}
@@ -143,16 +186,18 @@ export function generateImmutableBase(table: TableInfo): string {
   const schemaInterface = generateSchemaInterface(className, columns);
   const immutableDecls  = columns.map(c => {
     const tsType = c.isNullable ? `${c.tsType} | null` : c.tsType;
-    return `  readonly ${c.name} = new ImmutableColumn<${c.tsType}>('${c.name}', null as unknown as ${tsType});`;
+    const validator = getTypeValidator(c.tsType, c.isNullable);
+    const validatorArg = validator === 'undefined' ? 'undefined' : validator;
+    return `  readonly ${c.name} = new Column<${c.tsType}>('${c.name}', ${validatorArg}, true);  // ${tsType}`;
   }).join('\n');
 
   return `\
 // AUTO-GENERATED — do not edit. Run \`npm run generate\` to regenerate.
 // Reference table: ${tableName}
 
-import { ImmutableColumn } from '../orm/immutable-column.ts';
-import { ImmutableRow }    from '../orm/immutable-row.ts';
-import { ReferenceData }   from '../orm/reference-data.ts';
+import { Column, TypeValidators } from '../orm/column.js';
+import { ImmutableRow } from '../orm/immutable-row.js';
+import { ReferenceData }   from '../orm/reference-data.js';
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -176,7 +221,7 @@ ${columns.map(c => {
     const getter = c.tsType === 'Date'
       ? `data['${c.name}'] != null ? new Date(data['${c.name}'] as string) : null`
       : `(data['${c.name}'] ?? null) as ${c.tsType} | null`;
-    return `    (row as any).${c.name} = new ImmutableColumn('${c.name}', ${getter});`;
+    return `    row.${c.name}.assumeClean(${getter});`;
   }).join('\n')}
     row._registerColumns(
 ${columns.map(c => `      row.${c.name}`).join(',\n')},
@@ -198,7 +243,7 @@ ReferenceData.register(_${className}RowBase as any);
  */
 export function generateMutableStub(table: TableInfo): string {
   const { tableName, className } = table;
-  const baseFile = `../generated/_${toKebabCase(tableName)}-row-base.ts`;
+  const baseFile = `../generated/_${toKebabCase(tableName)}-row-base.js`;
 
   return `\
 // Hand-maintained extension of the generated base class for '${tableName}'.
@@ -218,7 +263,7 @@ export class ${className}Row extends _${className}RowBase {
  */
 export function generateImmutableStub(table: TableInfo): string {
   const { tableName, className } = table;
-  const baseFile = `../generated/_${toKebabCase(tableName)}-row-base.ts`;
+  const baseFile = `../generated/_${toKebabCase(tableName)}-row-base.js`;
 
   return `\
 // Hand-maintained extension of the generated base class for '${tableName}'.
@@ -246,7 +291,9 @@ function generateSchemaInterface(className: string, columns: ColumnInfo[]): stri
 function generateColumnDecls(columns: ColumnInfo[]): string {
   return columns.map(c => {
     const tsType = c.isNullable ? `${c.tsType} | null` : c.tsType;
-    return `  readonly ${c.name} = new Column<${c.tsType}>('${c.name}');  // ${tsType}`;
+    const validator = getTypeValidator(c.tsType, c.isNullable);
+    const immutableFlag = c.isPrimaryKey ? ', true' : '';
+    return `  readonly ${c.name} = new Column<${c.tsType}>('${c.name}', ${validator}${immutableFlag});  // ${tsType}`;
   }).join('\n') + '\n';
 }
 

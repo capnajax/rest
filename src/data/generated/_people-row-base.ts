@@ -1,14 +1,14 @@
 // AUTO-GENERATED — do not edit. Run `npm run generate` to regenerate.
 // Table: people
 
-import { Column }            from '../orm/column.ts';
-import { RelationshipArray } from '../orm/relationship-array.ts';
-import { MutableRow }        from '../orm/mutable-row.ts';
-import { registerRow }       from '../orm/row-registry.ts';
-import type { ColumnSets, RelationshipDef } from '../orm/types.ts';
+import { Column, TypeValidators }            from '../orm/column.js';
+import { RelationshipArray } from '../orm/relationship-array.js';
+import { MutableRow }        from '../orm/mutable-row.js';
+import { registerRow }       from '../orm/row-registry.js';
+import type { ColumnSets, RelationshipDef } from '../orm/types.js';
 import type { PoolClient }   from 'pg';
 
-import type { _ArticlesRowBase } from './_articles-row-base.ts';
+import type { _ArticlesRowBase } from './_articles-row-base.js';
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -39,18 +39,21 @@ export class _PeopleRowBase extends MutableRow {
 
   // ── Scalar columns ───────────────────────────────────────────────────────
 
-  readonly id = new Column<number>('id');  // number
-  readonly username = new Column<string>('username');  // string
-  readonly displayname = new Column<string>('displayname');  // string
-  readonly realm_id = new Column<number>('realm_id');  // number
-  readonly isauthor = new Column<boolean>('isauthor');  // boolean
-  readonly info = new Column<Record<string, unknown>>('info');  // Record<string, unknown> | null
+  readonly id = new Column<number>('id', TypeValidators.number, true);  // number
+  readonly username = new Column<string>('username', TypeValidators.string);  // string
+  readonly displayname = new Column<string>('displayname', TypeValidators.string);  // string
+  readonly realm_id = new Column<number>('realm_id', TypeValidators.number);  // number
+  readonly isauthor = new Column<boolean>('isauthor', TypeValidators.boolean);  // boolean
+  readonly info = new Column<Record<string, unknown>>('info', TypeValidators.objectOrNull);  // Record<string, unknown> | null
 
   // ── Relationship arrays ──────────────────────────────────────────────────
 
   articles?: RelationshipArray<_ArticlesRowBase>;
 
-  constructor() {
+  constructor(
+    initialData?: Record<string, unknown>,
+    assumeFromDb: boolean = false
+  ) {
     super();
     this._registerColumns(
       this.id,
@@ -60,6 +63,7 @@ export class _PeopleRowBase extends MutableRow {
       this.isauthor,
       this.info,
     );
+    this._initialize(initialData, assumeFromDb);
   }
 
   // ── Load methods ─────────────────────────────────────────────────────────
@@ -94,6 +98,24 @@ export class _PeopleRowBase extends MutableRow {
       this._whereByPk(),
       connection,
     ).then(this._assertFound('loadAll'));
+  }
+
+  /** Loads all the column sets in the set specified. */
+  loadColumns(connection: PoolClient, columnSet?: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection?: PoolClient|'summary'|'simple'|'all', columnSet?: 'summary'|'simple'|'all'): Promise<void> {
+    if (typeof connection === 'string') {
+      columnSet = connection;
+      connection = undefined;
+    }
+    switch (columnSet) {
+      case 'all':
+        return this.loadAll(connection);
+      case 'simple':
+        return this.loadSimple(connection);
+      default:
+        return this.loadSummary(connection);
+    }
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

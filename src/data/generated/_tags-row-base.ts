@@ -1,11 +1,11 @@
 // AUTO-GENERATED — do not edit. Run `npm run generate` to regenerate.
 // Table: tags
 
-import { Column }            from '../orm/column.ts';
-import { RelationshipArray } from '../orm/relationship-array.ts';
-import { MutableRow }        from '../orm/mutable-row.ts';
-import { registerRow }       from '../orm/row-registry.ts';
-import type { ColumnSets, RelationshipDef } from '../orm/types.ts';
+import { Column, TypeValidators }            from '../orm/column.js';
+import { RelationshipArray } from '../orm/relationship-array.js';
+import { MutableRow }        from '../orm/mutable-row.js';
+import { registerRow }       from '../orm/row-registry.js';
+import type { ColumnSets, RelationshipDef } from '../orm/types.js';
 import type { PoolClient }   from 'pg';
 
 
@@ -36,18 +36,21 @@ export class _TagsRowBase extends MutableRow {
 
   // ── Scalar columns ───────────────────────────────────────────────────────
 
-  readonly id = new Column<number>('id');  // number
-  readonly color = new Column<string>('color');  // string | null
-  readonly important = new Column<boolean>('important');  // boolean
-  readonly seq = new Column<number>('seq');  // number | null
-  readonly num_articles = new Column<number>('num_articles');  // number | null
-  readonly title = new Column<string>('title');  // string
+  readonly id = new Column<number>('id', TypeValidators.number, true);  // number
+  readonly color = new Column<string>('color', TypeValidators.stringOrNull);  // string | null
+  readonly important = new Column<boolean>('important', TypeValidators.boolean);  // boolean
+  readonly seq = new Column<number>('seq', TypeValidators.numberOrNull);  // number | null
+  readonly num_articles = new Column<number>('num_articles', TypeValidators.numberOrNull);  // number | null
+  readonly title = new Column<string>('title', TypeValidators.string);  // string
 
   // ── Relationship arrays ──────────────────────────────────────────────────
 
   // (none)
 
-  constructor() {
+  constructor(
+    initialData?: Record<string, unknown>,
+    assumeFromDb: boolean = false
+  ) {
     super();
     this._registerColumns(
       this.id,
@@ -57,6 +60,7 @@ export class _TagsRowBase extends MutableRow {
       this.num_articles,
       this.title,
     );
+    this._initialize(initialData, assumeFromDb);
   }
 
   // ── Load methods ─────────────────────────────────────────────────────────
@@ -91,6 +95,24 @@ export class _TagsRowBase extends MutableRow {
       this._whereByPk(),
       connection,
     ).then(this._assertFound('loadAll'));
+  }
+
+  /** Loads all the column sets in the set specified. */
+  loadColumns(connection: PoolClient, columnSet?: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection: 'summary'|'simple'|'all'): Promise<void>;
+  loadColumns(connection?: PoolClient|'summary'|'simple'|'all', columnSet?: 'summary'|'simple'|'all'): Promise<void> {
+    if (typeof connection === 'string') {
+      columnSet = connection;
+      connection = undefined;
+    }
+    switch (columnSet) {
+      case 'all':
+        return this.loadAll(connection);
+      case 'simple':
+        return this.loadSimple(connection);
+      default:
+        return this.loadSummary(connection);
+    }
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

@@ -1,4 +1,12 @@
-import { FrameworkMeta } from 'filamentjs';
+import { ContextMeta, FrameworkMeta } from 'filamentjs';
+import {
+    AppMeta as RateLimitAppMeta,
+    ContextMeta as RateLimitContextMeta
+} from '@filamentjs/rate-limiting';
+import {
+    AppMeta as ReqLoggingAppMeta,
+    ContextMeta as ReqLoggingContextMeta
+} from '@filamentjs/request-logging';
 
 export interface ObjectRoleInfo {
   article?: string|number;
@@ -19,7 +27,11 @@ export interface EndpointMetaRoles {
  * Extend this interface to add your own metadata properties.
  * Middleware can inspect req.endpointMeta to make decisions.
  */
-export interface AppMeta extends FrameworkMeta {
+export interface AppMeta extends 
+  FrameworkMeta, RateLimitAppMeta, ReqLoggingAppMeta
+{
+
+  analytics: { enabled: boolean };
 
   contentTypes: {
     /**
@@ -68,11 +80,6 @@ export interface AppMeta extends FrameworkMeta {
   }|null;
 
   /**
-   * Rate limit for this endpoint (requests per minute)
-   */
-  rateLimit: number;
-
-  /**
    * Logging configuration
    */
   logging: {
@@ -91,4 +98,35 @@ export interface AppMeta extends FrameworkMeta {
    * is true).
    */
   roles?: EndpointMetaRoles;
+}
+
+/**
+ * For context
+ */
+export interface ContentType {
+  type: string;
+  params: Record<string, string>;
+  isMultipart: () => boolean;
+  isJson: () => boolean;
+  isYaml: () => boolean;
+  isXml: () => boolean;
+  isToml: () => boolean;
+  isFormUrlEncoded: () => boolean;
+  isPlainText: () => boolean;
+  isHtml: () => boolean;
+  isImage: () => boolean
+}
+
+export interface Context extends 
+  ContextMeta, RateLimitContextMeta, ReqLoggingContextMeta
+{
+  body?: () => Promise<unknown>,
+  contentType?: ContentType|null;
+  contentTypes: {
+    allowMissingContentType: boolean,
+    defaultType: string,
+    supportedTypes?: string[]
+  },
+  cookies?: Record<string, string>,
+  session?: Record<string, any>|null
 }

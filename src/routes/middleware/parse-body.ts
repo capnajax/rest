@@ -1,27 +1,14 @@
 import { Application, Request } from "filamentjs";
 import stringify from "safe-stable-stringify";
-import toml from 'toml';
 import yaml from 'yaml';
-import { AppMeta } from "@/meta/meta-types.ts";
-import { getLogger } from "@/util/logger.ts";
+import toml from 'toml';
+import { AppMeta, ContentType, Context } from "../../meta/meta-types.js";
+import { getLogger } from "../../util/logger.js";
 
 const MODULE = 'm.parse-body';
 
-export interface ContentType {
-  type: string;
-  params: Record<string, string>;
-  isMultipart: () => boolean;
-  isJson: () => boolean;
-  isYaml: () => boolean;
-  isXml: () => boolean;
-  isToml: () => boolean;
-  isFormUrlEncoded: () => boolean;
-  isPlainText: () => boolean;
-  isHtml: () => boolean;
-  isImage: () => boolean
-}
-
-export function parseBody(req: Request<AppMeta>):() => Promise<any> {
+export function parseBody(req: Request<AppMeta, Context>)
+:() => Promise<unknown> {
   return async () => {
     const contentType = req.context.contentType as ContentType;
     const log = getLogger(MODULE, 'parseBody');
@@ -59,12 +46,12 @@ export function parseBody(req: Request<AppMeta>):() => Promise<any> {
 }
 
 export function isSupportedMediaType(
-  req: Request<AppMeta>, contentType?: ContentType
+  req: Request<AppMeta, Context>, contentType?: ContentType
 ): boolean {
   const log = getLogger(MODULE, 'isSupportedMediaType');
   log.verbose('Checking if content type is supported: %o', contentType);
   if (!(contentType?.type)) {
-    return req.context.contentTypes.allowMissingContentType;
+    return req.context.contentTypes?.allowMissingContentType || false;
   }
   const ct = req.context?.contentTypes;
   log.verbose('Supported types: %s', JSON.stringify(ct?.supportedTypes));
@@ -79,7 +66,7 @@ export function isSupportedMediaType(
     } else {
       return [`text/${t}`, `application/${t}`];
     }
-  });
+  }).flat();
   if (contentType?.type && acceptableTypes?.length)  {
     log.verbose('Content type is %s, acceptable types are: %o', contentType.type, acceptableTypes);
     return acceptableTypes.includes(contentType.type);
@@ -89,26 +76,25 @@ export function isSupportedMediaType(
   }
 }
 
-export function parseContentMiddleware(app: Application<AppMeta>) {
+export function parseContentMiddleware(app: Application<AppMeta, Context>) {
   // get the content type of the request and parse the body accordingly,
   // attaching it to req.context.body
-  app.use(async (req, res, next) => {
+  app.use(async (req, res) => {
     // Only parse body for POST, PUT, PATCH requests
-    if (req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'PATCH') {
-      await next();
+    if (!['POST', 'PUT', 'PATCH'].includes(req.method)) {
       return;
     }
     const log = getLogger(MODULE, 'parseContentMiddleware');
     log.verbose('Running parseContentMiddleware on a %s request', req.method);
 
-    let contentTypeString = req.headers['content-type'] || null;
+    let contentTypeString = req.headers.get('content-type') || null;
     if (Array.isArray(contentTypeString)) {
       // 400 Bad Request if multiple content-type headers are present
       res.status(400).json({ error: 'Multiple Content-Type headers are not allowed' });
       return;
     }
     if (!contentTypeString) {
-      if (req.context.contentTypes.allowMissingContentType) {
+      if (req.context.contentTypes?.allowMissingContentType || false) {
         contentTypeString = req.context.contentTypes.defaultType as string;
         if (!contentTypeString) {
           res.status(500).json({
@@ -175,8 +161,5 @@ export function parseContentMiddleware(app: Application<AppMeta>) {
     req.context.contentType = contentType as ContentType;
 
     req.context.body = parseBody(req);
-
-    await next();
   });
-
 }
