@@ -15,15 +15,17 @@ export interface ColumnInfo {
 
 export interface RelationshipInfo {
   name:        string;
-  kind:        'link' | 'direct';
+  kind:        'link' | 'direct' | 'single';
   targetTable: string;
   loadWith:    'simple' | 'all';
   // link only
   linkTable?:  string;
   sourceFk?:   string;
   targetFk?:   string;
-  // direct only
+  // direct: target FK; single: local FK
   foreignKey?: string;
+  targetColumn?: string; // referenced column for inferred reference-table FKs
+  isReference?: boolean; // single target is preloaded ReferenceData
 }
 
 export interface TableInfo {

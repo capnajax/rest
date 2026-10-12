@@ -3,6 +3,8 @@
 
 # Tables loaded at startup as immutable ReferenceData.
 # These generate ImmutableRow subclasses with no save() or delete().
+# Foreign keys targeting these tables automatically generate single relationships
+# with loadWith: simple (content_type_id -> content_type).
 referenceTables:
   - content_types
   - db_properties
@@ -15,14 +17,20 @@ linkTables:
   - article_attachments
   - article_tag
 
-# Array relationships to generate on mutable row classes.
-# Each entry under a table name creates a RelationshipArray property and
-# is loaded by loadSimple() (loadWith: simple) or only loadAll() (loadWith: all).
+# Relationships to generate on mutable row classes.
+# Dynamic relationships are loaded by loadSimple() (loadWith: simple) or only loadAll() (loadWith: all).
 #
 # kind: link   — many-to-many via a junction table
 # kind: direct — one-to-many via a foreign key on the target table
+# kind: single — one object via a foreign key on this table; referenceTables
+#               resolve from preloaded data whenever the local FK is available.
 relationships:
   articles:
+    - name: primary_permalink
+      kind: single
+      foreignKey: primary_permalink_id
+      targetTable: permalinks
+      loadWith: simple
     - name: attachments
       kind: link
       linkTable: article_attachments

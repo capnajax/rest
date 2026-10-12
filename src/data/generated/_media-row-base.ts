@@ -41,7 +41,7 @@ export class _MediaRowBase extends MutableRow {
   readonly last_update = new Column<Date>('last_update', TypeValidators.date);  // Date
   readonly data_b64 = new Column<string>('data_b64', TypeValidators.string);  // string
 
-  // ── Relationship arrays ──────────────────────────────────────────────────
+  // ── Relationships ──────────────────────────────────────────────────
 
   // (none)
 

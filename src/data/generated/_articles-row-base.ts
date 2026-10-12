@@ -8,9 +8,10 @@ import { registerRow }       from '../orm/row-registry.js';
 import type { ColumnSets, RelationshipDef } from '../orm/types.js';
 import type { PoolClient }   from 'pg';
 
-import type { _MediaRowBase } from './_media-row-base.js';
 import type { _PermalinksRowBase } from './_permalinks-row-base.js';
+import type { _MediaRowBase } from './_media-row-base.js';
 import type { _TagsRowBase } from './_tags-row-base.js';
+import type { _ContentTypesRowBase } from './_content-types-row-base.js';
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -42,9 +43,11 @@ export class _ArticlesRowBase extends MutableRow {
   };
 
   static readonly relationshipDefs: RelationshipDef[] = [
+    { name: 'primary_permalink', targetTable: 'permalinks', loadWith: 'simple', kind: 'single', foreignKey: 'primary_permalink_id', isReference: false },
     { name: 'attachments', targetTable: 'media', loadWith: 'all', kind: 'link', linkTable: 'article_attachments', sourceFk: 'article_id', targetFk: 'media_id' },
     { name: 'permalinks', targetTable: 'permalinks', loadWith: 'all', kind: 'direct', foreignKey: 'article_id' },
     { name: 'tags', targetTable: 'tags', loadWith: 'simple', kind: 'link', linkTable: 'article_tag', sourceFk: 'article_id', targetFk: 'tag_id' },
+    { name: 'content_type', targetTable: 'content_types', loadWith: 'simple', kind: 'single', foreignKey: 'content_type_id', isReference: true, targetColumn: 'id' },
   ];
 
   // ── Scalar columns ───────────────────────────────────────────────────────
@@ -62,11 +65,23 @@ export class _ArticlesRowBase extends MutableRow {
   readonly is_featured = new Column<boolean>('is_featured', TypeValidators.boolean);  // boolean
   readonly is_hidden = new Column<boolean>('is_hidden', TypeValidators.boolean);  // boolean
 
-  // ── Relationship arrays ──────────────────────────────────────────────────
+  // ── Relationships ──────────────────────────────────────────────────
 
-  attachments?: RelationshipArray<_MediaRowBase>;
-  permalinks?: RelationshipArray<_PermalinksRowBase>;
-  tags?: RelationshipArray<_TagsRowBase>;
+  get primary_permalink(): _PermalinksRowBase | null | undefined {
+    return this._getSingleRelationship('primary_permalink') as _PermalinksRowBase | null | undefined;
+  }
+  get attachments(): RelationshipArray<_MediaRowBase> | undefined {
+    return this._relationships.get('attachments');
+  }
+  get permalinks(): RelationshipArray<_PermalinksRowBase> | undefined {
+    return this._relationships.get('permalinks');
+  }
+  get tags(): RelationshipArray<_TagsRowBase> | undefined {
+    return this._relationships.get('tags');
+  }
+  get content_type(): _ContentTypesRowBase | null | undefined {
+    return this._getSingleRelationship('content_type') as _ContentTypesRowBase | null | undefined;
+  }
 
   constructor(
     initialData?: Record<string, unknown>,
@@ -106,7 +121,7 @@ export class _ArticlesRowBase extends MutableRow {
   loadSimple(connection?: PoolClient): Promise<void> {
     return this._load(
       _ArticlesRowBase.columnSets.simple,
-      ["tags"].map(
+      ["primary_permalink","tags","content_type"].map(
         n => _ArticlesRowBase.relationshipDefs.find(d => d.name === n)!,
       ),
       this._whereByPk(),

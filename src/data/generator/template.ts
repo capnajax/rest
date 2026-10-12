@@ -90,7 +90,7 @@ export class _${className}RowBase extends MutableRow {
   // ── Scalar columns ───────────────────────────────────────────────────────
 
 ${columnDecls}
-  // ── Relationship arrays ──────────────────────────────────────────────────
+  // ── Relationships ──────────────────────────────────────────────────
 
 ${relDecls}
   constructor(
@@ -181,7 +181,11 @@ registerRow('${tableName}', _${className}RowBase);
  * Generates the TypeScript source for a reference-table (immutable) base file.
  */
 export function generateImmutableBase(table: TableInfo): string {
-  const { tableName, className, pkColumn, columns } = table;
+  const { tableName, className, pkColumn, columns, relationships } = table;
+  const referenceRels = relationships.filter(r => r.kind === 'single' && r.isReference);
+  const referenceImports = [...new Set(referenceRels.map(r => r.targetTable))].map(t =>
+    `import type { _${toPascalCase(t)}RowBase } from './_${toKebabCase(t)}-row-base.js';`,
+  ).join('\n');
 
   const schemaInterface = generateSchemaInterface(className, columns);
   const immutableDecls  = columns.map(c => {
@@ -198,6 +202,7 @@ export function generateImmutableBase(table: TableInfo): string {
 import { Column, TypeValidators } from '../orm/column.js';
 import { ImmutableRow } from '../orm/immutable-row.js';
 import { ReferenceData }   from '../orm/reference-data.js';
+${referenceImports}
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -212,6 +217,13 @@ export class _${className}RowBase extends ImmutableRow {
   // ── Columns ──────────────────────────────────────────────────────────────
 
 ${immutableDecls}
+${referenceRels.map(r => `
+  get ${r.name}(): _${toPascalCase(r.targetTable)}RowBase | null | undefined {
+    const value = this.${r.foreignKey}.toJSON();
+    if (value === undefined || value === null) return value;
+    return (ReferenceData.byTableId('${r.targetTable}', value${r.targetColumn ? `, '${r.targetColumn}'` : ''}) ?? null) as _${toPascalCase(r.targetTable)}RowBase | null;
+  }
+`).join('')}
 
   // ── Construction ─────────────────────────────────────────────────────────
 
@@ -301,7 +313,14 @@ function generateRelDecls(relationships: RelationshipInfo[]): string {
   if (relationships.length === 0) return '  // (none)\n';
   return relationships.map(r => {
     const cls = `_${toPascalCase(r.targetTable)}RowBase`;
-    return `  ${r.name}?: RelationshipArray<${cls}>;`;
+    if (r.kind === 'single') {
+      return `  get ${r.name}(): ${cls} | null | undefined {
+    return this._getSingleRelationship('${r.name}') as ${cls} | null | undefined;
+  }`;
+    }
+    return `  get ${r.name}(): RelationshipArray<${cls}> | undefined {
+    return this._relationships.get('${r.name}');
+  }`;
   }).join('\n') + '\n';
 }
 
@@ -309,6 +328,9 @@ function generateRelDefs(relationships: RelationshipInfo[]): string {
   if (relationships.length === 0) return '[]';
   const entries = relationships.map(r => {
     const base = `{ name: '${r.name}', targetTable: '${r.targetTable}', loadWith: '${r.loadWith}'`;
+    if (r.kind === 'single') {
+      return `    ${base}, kind: 'single', foreignKey: '${r.foreignKey}', isReference: ${r.isReference === true}${r.targetColumn ? `, targetColumn: '${r.targetColumn}'` : ''} }`;
+    }
     if (r.kind === 'link') {
       return `    ${base}, kind: 'link', linkTable: '${r.linkTable}', sourceFk: '${r.sourceFk}', targetFk: '${r.targetFk}' }`;
     } else {

@@ -20,6 +20,7 @@ import { registerMiddleware } from './routes/middleware/index.js';
 import { registerRoutes } from './routes/index.js';
 import { initializeLogger } from './util/logger.js';
 import parseArgs, { parsedArgs } from './args.js';
+import { ReferenceData } from './data/orm/reference-data.js';
 
 export async function start(
   o?:Partial<AppConfig>,
@@ -43,6 +44,8 @@ export async function start(
   } else {
     console.info('DATABASE_URL not set; skipping schema migrations.');
   }
+
+  await ReferenceData.initialize();
 
   // Create Filament application
   const app = createApp(defaultMeta, {} as Context);

@@ -5,6 +5,7 @@ import { Column, TypeValidators } from '../orm/column.js';
 import { ImmutableRow } from '../orm/immutable-row.js';
 import { ReferenceData }   from '../orm/reference-data.js';
 
+
 // ── Schema interface ───────────────────────────────────────────────────────
 
 export interface DbPropertiesSchema {
@@ -24,6 +25,7 @@ export class _DbPropertiesRowBase extends ImmutableRow {
   readonly id = new Column<number>('id', TypeValidators.number, true);  // number
   readonly name = new Column<string>('name', TypeValidators.string, true);  // string
   readonly value = new Column<string>('value', TypeValidators.string, true);  // string
+
 
   // ── Construction ─────────────────────────────────────────────────────────
 

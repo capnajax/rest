@@ -26,6 +26,7 @@ export type ColumnSets = {
  *
  * kind: 'link'   – joined through a link/junction table (many-to-many)
  * kind: 'direct' – joined via a foreign key on the target table (one-to-many)
+ * kind: 'single' – local foreign key references the target primary key
  *
  * loadWith: 'simple' – included in loadSimple() and loadAll()
  * loadWith: 'all'    – included only in loadAll()
@@ -39,6 +40,7 @@ export type RelationshipDef =
   & (
     | { kind: 'link';   linkTable: string; sourceFk: string; targetFk: string }
     | { kind: 'direct'; foreignKey: string }
+    | { kind: 'single'; foreignKey: string; isReference: boolean; targetColumn?: string }
   );
 
 /**

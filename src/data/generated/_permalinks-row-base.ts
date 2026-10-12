@@ -37,7 +37,7 @@ export class _PermalinksRowBase extends MutableRow {
   readonly name = new Column<string>('name', TypeValidators.string);  // string
   readonly article_id = new Column<number>('article_id', TypeValidators.number);  // number
 
-  // ── Relationship arrays ──────────────────────────────────────────────────
+  // ── Relationships ──────────────────────────────────────────────────
 
   // (none)
 

@@ -46,7 +46,9 @@ export class ReferenceData {
     try {
       for (const ctor of ReferenceData._registered) {
         const sql    = `SELECT * FROM "${ctor.tableName}" ORDER BY "${ctor.pkColumn}"`;
-        const result = await queryWithConnection(conn, sql, []);
+        const result = await queryWithConnection(
+          {connection: conn, allowHardcoded: true}, sql, []
+        );
         const rows   = result.rows.map(row => {
           const instance = new ctor();
           return instance._fromRecord(row);
@@ -75,6 +77,13 @@ export class ReferenceData {
     return (ReferenceData._require(ctor) as T[]).find(
       row => (row.getValue(pkColumn)) === id,
     );
+  }
+
+  /** Resolve a generated single relationship without importing its constructor. */
+  static byTableId(tableName: string, id: unknown, targetColumn?: string): ImmutableRow | undefined {
+    const ctor = ReferenceData._registered.find(candidate => candidate.tableName === tableName);
+    if (!ctor) throw new Error(`No reference row class registered for table '${tableName}'`);
+    return ReferenceData._require(ctor).find(row => row.getValue(targetColumn ?? ctor.pkColumn) === id);
   }
 
   /** Find a reference row by its name column. */

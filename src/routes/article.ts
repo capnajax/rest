@@ -44,11 +44,11 @@ export function articleRoutes(app: Application<AppMeta>) {
     await ArticlesRow.loadArticles().then(async (articles) => {
       log.info(`Loaded ${articles.length} articles: ${JSON.stringify(articles)}`);
       for (const article of articles) {
-        console.log({article:article.toJSON()});
-        console.log('loading simple');
+        // console.log({article:article.toJSON()});
+        // console.log('loading simple');
         await article.loadSimple();
-        console.log('loaded simple');
-        console.log({article:article.toJSON()});
+        // console.log('loaded simple');
+        // console.log({article:article.toJSON()});
         res.sendChunk(JSON.stringify(article.toJSON()) + '\n');
       }
     }).catch(err => {

@@ -41,7 +41,7 @@ export class _BylinesRowBase extends MutableRow {
   readonly sequence = new Column<number>('sequence', TypeValidators.numberOrNull);  // number | null
   readonly text = new Column<string>('text', TypeValidators.string);  // string
 
-  // ── Relationship arrays ──────────────────────────────────────────────────
+  // ── Relationships ──────────────────────────────────────────────────
 
   // (none)
 

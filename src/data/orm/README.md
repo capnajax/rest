@@ -48,6 +48,68 @@ Queries only need to load the columns they need. Unloaded columns stay `UNSET`. 
 
 `row.isDirty()` checks all scalar columns and all relationship arrays. Dirty columns are committed (original = current) on a successful `save()`.
 
+### Single-object relationships
+
+Foreign keys targeting a table in `referenceTables` automatically generate
+`kind: single`, `loadWith: simple` relationships from database constraints.
+`content_type_id` becomes `content_type`; names without `_id` get a `_ref`
+suffix. This also works between reference tables (e.g. `content_type.form_factor`).
+Single-column foreign keys to other unique columns are resolved using the
+referenced column. Composite foreign keys are unsupported and cause a generation
+error. Property-name collisions require an explicit name in configuration.
+
+Explicit single relationships for the same local FK override inferred ones.
+Other relationships still require configuration. Apply schema migrations before
+regenerating: a column name alone does not establish a foreign-key relationship.
+Migration `1.2.1` adds the previously missing articles/content_types constraint.
+
+Use `kind: single` when the foreign key lives on the current row. This covers
+many-to-one and one-to-one relationships; a database UNIQUE constraint on the
+local foreign key is what enforces one-to-one cardinality.
+
+```yaml
+relationships:
+  articles:
+    # content_type is inferred from its FK to referenceTables.
+    - name: primary_permalink
+      kind: single
+      foreignKey: primary_permalink_id
+      targetTable: permalinks
+      loadWith: simple
+```
+
+The generator determines whether the target is preloaded from `referenceTables`:
+
+- Reference targets resolve synchronously from `ReferenceData` whenever the FK
+  is available, including rows constructed from custom query results. Initialize
+  reference data and import the generated barrel before accessing these getters.
+- Dynamic targets load with `loadSimple()` / `loadAll()` according to `loadWith`
+  (default: `simple`), or explicitly with `loadRelationship(name, connection?)`.
+  Each single target uses one query for its scalar columns, without recursively
+  loading its relationships. Explicit loads refresh the target from the database.
+
+```typescript
+article.content_type?.name.value; // Shared, immutable startup row; no query.
+await article.loadRelationship('primary_permalink'); // Requires the local FK.
+article.primary_permalink?.name.value;
+
+article.primary_permalink_id.value = anotherPermalinkId;
+await article.save(); // Persists the FK.
+await article.loadRelationship('primary_permalink'); // Load the new target.
+```
+
+Getters return `undefined` when the FK or dynamic target has not been loaded,
+`null` for a null FK or missing target, and a row otherwise. JSON includes resolved
+single objects (or null), omits unloaded ones, and retains the scalar FK column.
+Changing an FK makes a previously loaded target unavailable until reloaded;
+reference getters immediately resolve the new key against the startup snapshot.
+A parent hydration also clears loaded dynamic single targets.
+
+Single getters are read-only navigation properties. Assign the scalar FK to
+change the relationship. Saving or deleting the owner never saves or deletes a
+single target; save an edited dynamic target explicitly. Custom bulk queries
+resolve reference getters automatically, but must explicitly load dynamic targets.
+
 ### Array relationships
 
 Related rows are held in `RelationshipArray<T>`, which tracks additions and removals explicitly:

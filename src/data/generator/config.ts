@@ -7,7 +7,7 @@ import type { RelationshipInfo } from './types.js';
 
 interface RawRelationship {
   name:        string;
-  kind:        'link' | 'direct';
+  kind:        'link' | 'direct' | 'single';
   targetTable: string;
   // loadWith: for deciding which relationships to load with which columns
   //    simple: load with `loadSimple()`, e.g. when loading simple relationships
@@ -17,7 +17,7 @@ interface RawRelationship {
   linkTable?:  string;
   sourceFk?:   string;
   targetFk?:   string;
-  // direct
+  // direct: target FK; single: local FK
   foreignKey?: string;
 }
 
@@ -57,16 +57,21 @@ export function loadConfig(projectRoot: string): OrmConfig {
 
   const raw = yaml.parse(fs.readFileSync(configPath, 'utf-8')) as RawConfig;
 
+  const referenceTables = new Set(raw.referenceTables ?? []);
   const relationships = new Map<string, RelationshipInfo[]>();
   for (const [tableName, rels] of Object.entries(raw.relationships ?? {})) {
     relationships.set(
       tableName,
-      rels.map(r => validateRelationship(r, tableName)),
+      rels.map(r => {
+        const rel = validateRelationship(r, tableName);
+        if (rel.kind === 'single') rel.isReference = referenceTables.has(rel.targetTable);
+        return rel;
+      }),
     );
   }
 
   return {
-    referenceTables: new Set(raw.referenceTables ?? []),
+    referenceTables,
     linkTables:      new Set(raw.linkTables ?? []),
     relationships,
     outputDir:       raw.output?.directory ?? 'src/data/generated',
@@ -78,6 +83,13 @@ function validateRelationship(r: RawRelationship, table: string): RelationshipIn
   if (!r.kind)        throw new Error(`Relationship '${r.name}' in '${table}' is missing 'kind'`);
   if (!r.targetTable) throw new Error(`Relationship '${r.name}' in '${table}' is missing 'targetTable'`);
 
+  if (!['link', 'direct', 'single'].includes(r.kind)) {
+    throw new Error(`Unknown relationship kind '${r.kind}' in '${table}'`);
+  }
+  if (r.loadWith !== undefined && !['simple', 'all'].includes(r.loadWith)) {
+    throw new Error(`Invalid loadWith for relationship '${r.name}' in '${table}'`);
+  }
+
   if (r.kind === 'link') {
     if (!r.linkTable || !r.sourceFk || !r.targetFk) {
       throw new Error(
@@ -87,7 +99,7 @@ function validateRelationship(r: RawRelationship, table: string): RelationshipIn
   } else {
     if (!r.foreignKey) {
       throw new Error(
-        `Direct relationship '${r.name}' in '${table}' requires foreignKey`,
+        `Relationship '${r.name}' in '${table}' requires foreignKey`,
       );
     }
   }

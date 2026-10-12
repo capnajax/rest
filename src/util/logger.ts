@@ -406,7 +406,10 @@ export function getLogger(
   const contextLogger = winston.createLogger({
     level: levelConfig.level || 'info',
     levels: customLevels,
-    format,
+    format: winston.format.combine(
+      winston.format.splat(),
+      format,
+    ),
     transports: buildTransports(mmp, levelConfig, levelConfig.transport),
   });
 

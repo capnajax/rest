@@ -53,7 +53,7 @@ export class _AnalyticsRecordsRowBase extends MutableRow {
   readonly status_code = new Column<string>('status_code', TypeValidators.stringOrNull);  // string | null
   readonly latency_ms = new Column<number>('latency_ms', TypeValidators.numberOrNull);  // number | null
 
-  // ── Relationship arrays ──────────────────────────────────────────────────
+  // ── Relationships ──────────────────────────────────────────────────
 
   // (none)
 

@@ -4,6 +4,7 @@
 import { Column, TypeValidators } from '../orm/column.js';
 import { ImmutableRow } from '../orm/immutable-row.js';
 import { ReferenceData }   from '../orm/reference-data.js';
+import type { _FormFactorsRowBase } from './_form-factors-row-base.js';
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -24,6 +25,13 @@ export class _ContentTypesRowBase extends ImmutableRow {
   readonly id = new Column<number>('id', TypeValidators.number, true);  // number
   readonly name = new Column<string>('name', TypeValidators.string, true);  // string
   readonly form_factor_id = new Column<number>('form_factor_id', TypeValidators.number, true);  // number
+
+  get form_factor(): _FormFactorsRowBase | null | undefined {
+    const value = this.form_factor_id.toJSON();
+    if (value === undefined || value === null) return value;
+    return (ReferenceData.byTableId('form_factors', value, 'id') ?? null) as _FormFactorsRowBase | null;
+  }
+
 
   // ── Construction ─────────────────────────────────────────────────────────
 

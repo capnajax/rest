@@ -43,7 +43,7 @@ export class _TagsRowBase extends MutableRow {
   readonly num_articles = new Column<number>('num_articles', TypeValidators.numberOrNull);  // number | null
   readonly title = new Column<string>('title', TypeValidators.string);  // string
 
-  // ── Relationship arrays ──────────────────────────────────────────────────
+  // ── Relationships ──────────────────────────────────────────────────
 
   // (none)
 

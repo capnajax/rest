@@ -13,6 +13,11 @@ interface Query {
   query: string;
 }
 
+export interface QueryOptions {
+  connection: PoolClient,
+  allowHardcoded?: boolean
+}
+
 /**
  * A QueryNode is a nested object where the keys are strings and the values can
  * be:
@@ -194,22 +199,25 @@ export function getQuery(path: string): Query {
  * Returns the raw QueryResult object
  */
 export async function queryWithConnection(
-  connection: PoolClient,
+  options: QueryOptions,
   query: string|Query,
   parameters: any[] = []
 ): Promise<QueryResult> {
-  const log = getLogger(MODULE, 'queryWithConnection')
+  const log = getLogger(MODULE, 'queryWithConnection');
+  const connection = options.connection;
   let sql!:string;
   if (isQuery(query)) {
     sql = query.query;
   } else {
     if (/^[a-z][a-zA-Z0-9_]+(\.[a-z][a-zA-Z0-9_]+)*$/.test(query)) {
       query = getQuery(query).query;
-    } else {
+    } else if (options.allowHardcoded !== true) {
       log.warn(
         'Hard-coded query or incorrectly-formatted query path "%s"', query
       );
-      log.warn(query);
+      console.log('query:', query);
+      console.log('options.allowHardcoded:', options.allowHardcoded);
+      console.trace();
     }
     sql = query;
   }
@@ -236,7 +244,7 @@ export async function query(
   const connection = await getConnection();
 
   try {
-    const result = await queryWithConnection(connection, sql, parameters);
+    const result = await queryWithConnection({connection}, sql, parameters);
     return resultToArray(result);
   } finally {
     returnConnection(connection);
@@ -251,14 +259,14 @@ export async function query(
 export async function sqlQuery(
   sql: string,
   parameters: any[] = [],
-  connectionOrDatabase?: PoolClient
+  connectionOrDb?: PoolClient
 ): Promise<QueryResult> {
-  if (connectionOrDatabase) {
-    return queryWithConnection(connectionOrDatabase, sql, parameters);
+  if (connectionOrDb) {
+    return queryWithConnection({connection: connectionOrDb}, sql, parameters);
   } else {
     const conn = await getConnection();
     try {
-      return queryWithConnection(conn, {query: sql}, parameters);
+      return queryWithConnection({connection: conn}, {query: sql}, parameters);
     } finally {
       returnConnection(conn);
     }

@@ -9,6 +9,7 @@ import type { ColumnSets, RelationshipDef } from '../orm/types.js';
 import type { PoolClient }   from 'pg';
 
 import type { _ArticlesRowBase } from './_articles-row-base.js';
+import type { _RealmsRowBase } from './_realms-row-base.js';
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ export class _PeopleRowBase extends MutableRow {
 
   static readonly relationshipDefs: RelationshipDef[] = [
     { name: 'articles', targetTable: 'articles', loadWith: 'simple', kind: 'direct', foreignKey: 'author_id' },
+    { name: 'realm', targetTable: 'realms', loadWith: 'simple', kind: 'single', foreignKey: 'realm_id', isReference: true, targetColumn: 'id' },
   ];
 
   // ── Scalar columns ───────────────────────────────────────────────────────
@@ -46,9 +48,14 @@ export class _PeopleRowBase extends MutableRow {
   readonly isauthor = new Column<boolean>('isauthor', TypeValidators.boolean);  // boolean
   readonly info = new Column<Record<string, unknown>>('info', TypeValidators.objectOrNull);  // Record<string, unknown> | null
 
-  // ── Relationship arrays ──────────────────────────────────────────────────
+  // ── Relationships ──────────────────────────────────────────────────
 
-  articles?: RelationshipArray<_ArticlesRowBase>;
+  get articles(): RelationshipArray<_ArticlesRowBase> | undefined {
+    return this._relationships.get('articles');
+  }
+  get realm(): _RealmsRowBase | null | undefined {
+    return this._getSingleRelationship('realm') as _RealmsRowBase | null | undefined;
+  }
 
   constructor(
     initialData?: Record<string, unknown>,
@@ -82,7 +89,7 @@ export class _PeopleRowBase extends MutableRow {
   loadSimple(connection?: PoolClient): Promise<void> {
     return this._load(
       _PeopleRowBase.columnSets.simple,
-      ["articles"].map(
+      ["articles","realm"].map(
         n => _PeopleRowBase.relationshipDefs.find(d => d.name === n)!,
       ),
       this._whereByPk(),
