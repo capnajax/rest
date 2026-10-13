@@ -1,4 +1,4 @@
-import winston, { level } from 'winston';
+import winston from 'winston';
 import * as fs from 'fs';
 import { deepClone, deepMerge, isNil, omit } from './tools.js';
 import {
@@ -11,6 +11,18 @@ const DEFAULT_LEVEL_CONFIG:LoggerLevelConfig = {
   level: 'info',
   format: 'colored',
   transport: { type: 'console' } as LogTransportConfig
+}
+
+function getLevelTag(level:string):string {
+  return {
+    error:   '[#ERROR]',
+    warn:    '[*warn*]',
+    info:    '[ info ]',
+    http:    '[ http ]',
+    debug:   '[  dbg ]',
+    verbose: '[   vb ]',
+    silly:   '[    s ]',
+  }[level] || '[      ]';
 }
 
 export interface HttpRequestLogData {
@@ -62,15 +74,7 @@ const formats: Record<string, FormatType> = {
       winston.format.printf(({ timestamp, level, message, ...meta }) => {
         const context = buildContextString(mmp, levelConfig, false);
 
-        const levelTag:string = {
-          error:   '[#ERROR]',
-          warn:    '[*warn*]',
-          info:    '[ info ]',
-          http:    '[ http ]',
-          debug:   '[  dbg ]',
-          verbose: '[   vb ]',
-          silly:   '[    s ]',
-        }[level] || '[      ]'
+        const levelTag:string = getLevelTag(level)
 
         return `${timestamp} ${levelTag} ${context} ${message}`;
       })
@@ -344,7 +348,9 @@ function buildTransports(
  * @example getLogger('auth', 'login')
  */
 export function getLogger(
-  module: string, method: string, ...options: Partial<LoggerLevelConfig>[]
+  module: string,
+  method: string|Function,
+  ...options: Partial<LoggerLevelConfig>[]
 ): winston.Logger;
 
 /**
@@ -352,15 +358,20 @@ export function getLogger(
  * @example getLogger('users', 'GET', '/api/users/:id')
  */
 export function getLogger(
-  module: string, method: string, path: string,
+  module: string, method: string|Function, path: string,
   ...options: Partial<LoggerLevelConfig>[]
 ): winston.Logger;
 
 export function getLogger(
-  module: string, method: string,
+  module: string, method: string|Function,
   optionsOrPath?: string|Partial<LoggerLevelConfig>,
   ...options: Partial<LoggerLevelConfig>[]
 ): winston.Logger {
+
+  if (typeof method === 'function') {
+    method = method.name;
+  }
+
   if (!config) {
     throw new Error('Logger not initialized. Call initializeLogger() first.');
   }
@@ -398,6 +409,10 @@ export function getLogger(
 
   // Build effective config by traversing hierarchy
   const levelConfig = buildLevelConfig(module, method, path, collapsedOptions);
+
+  console.log(
+    'Logger %s level for %s', getLevelTag(levelConfig.level || ''), cacheKey
+  );
 
   // Build format with context awareness
   const format = buildFormat({ module, method, path }, levelConfig, levelConfig.format);
