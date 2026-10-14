@@ -27,6 +27,7 @@ export class _DbPropertiesRowBase extends ImmutableRow {
   readonly value = new Column<string>('value', TypeValidators.string, true);  // string
 
 
+
   // ── Construction ─────────────────────────────────────────────────────────
 
   _fromRecord(data: Record<string, unknown>): this {

@@ -13,22 +13,42 @@ queries:
       WHERE a.is_featured = TRUE
         AND p.id = a.primary_permalink_id;
 
-    getSummariesById: |2
+    getSummariesByIds: |2
       SELECT
         a.id AS id,
-        a.title AS TITLE,
+        a.title AS title,
+        a.id as id,
+        a.author_id as author_id,
+        a.active_dt as active_dt,
+        a.last_update as last_update,
+        a.content_type_id as content_type_id,
+        a.title as title,
+        a.uuid as uuid,
+        a.primary_permalink_id as primary_permalink_id,
+        a.info as info,
+        a.byline_id as byline_id,
+        a.is_featured as is_featured,
+        a.is_hidden as is_hidden,
         p.name AS permalink,
         c.name AS content_type,
         f.name AS form_factor,
-        a.info AS info,
-        ARRAY(
-            SELECT ROW(t.title, t.color, t.important, t.seq) AS tags
-            FROM tags AS t, article_tag AS at
-            WHERE at.tag_id = t.id AND at.article_id = a.id
-            ORDER BY t.seq
-          ) AS tags
-        a.is_featured AS is_featured,
-        a.active_dt AS active_dt
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', t.id,
+                'title', t.title,
+                'color', t.color,
+                'important', t.important,
+                'seq', t.seq
+              )
+            )
+            FROM tags AS t
+            JOIN article_tag AS at ON at.tag_id = t.id
+            WHERE at.article_id = a.id
+          ),
+          '[]'::json
+        ) AS tags
       FROM articles AS a
       LEFT JOIN permalinks AS p ON p.id = a.primary_permalink_id
       JOIN content_types AS c ON c.id = a.content_type_id

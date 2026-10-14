@@ -201,7 +201,7 @@ export function getQuery(path: string): Query {
 export async function queryWithConnection(
   options: QueryOptions,
   query: string|Query,
-  parameters: any[] = []
+  parameters: unknown[] = []
 ): Promise<QueryResult> {
   const log = getLogger(MODULE, 'queryWithConnection');
   const connection = options.connection;

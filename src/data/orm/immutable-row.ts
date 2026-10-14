@@ -1,4 +1,7 @@
+import { getLogger } from '../../util/logger.js';
 import { Column } from './column.js';
+
+const MODULE = 'orm/immutable-row';
 
 /**
  * Abstract base for all generated reference-table row classes.
@@ -28,13 +31,27 @@ export abstract class ImmutableRow {
 
   /** Convenience: get any column by name for generic iteration. */
   protected _columns = new Map<string, Column<any>>();
+  /** Convenience: get any immutable reference for generic iteration. */
+  protected _immutableRefs = new Array<string>();
 
   toJSON(): Record<string, unknown> {
+    const log = getLogger(MODULE, 'toJSON');
     const result: Record<string, unknown> = {};
     for (const [name, col] of this._columns.entries()) {
       const value = col.toJSON();
       if (value !== undefined) {
         result[name] = value;
+      }
+    }
+    for (const ref of this._immutableRefs) {
+      const value = (this as unknown as Record<string, unknown>)[ref];
+      log.debug('Resolving immutable reference %s: %s', ref, value);
+      if (value !== undefined) {
+        if (value === null) {
+          result[ref] = null;
+        } else {
+          result[ref] = value;
+        }
       }
     }
     return result;
@@ -44,6 +61,9 @@ export abstract class ImmutableRow {
     for (const col of cols) {
       this._columns.set(col.name, col);
     }
+  }
+  protected _registerImmutableRefs(...refs: string[]): void {
+    this._immutableRefs.push(...refs);
   }
 
   getValue(columnName: string): any {

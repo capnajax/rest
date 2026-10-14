@@ -49,7 +49,7 @@ relationships:
       sourceFk: article_id
       targetFk: tag_id
       targetTable: tags
-      loadWith: simple
+      loadWith: simple  
   people:
     - name: articles
       kind: direct

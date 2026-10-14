@@ -4,8 +4,33 @@ import { ANALYTICS_ENABLED, PUBLIC } from '../meta/defaults.js';
 import { ArticlesRow } from '../data/tables/articles-row.js';
 
 import { getLogger } from '../util/logger.js';
-import { normalizeBoolean, normalizeZeroOrOne } from '../util/tools.js';
+import { normalizeArrayOfInts, normalizeBoolean, normalizeZeroOrOne } from '../util/tools.js';
 const MODULE= 'article-routes';
+
+interface ByIdsQuery {
+  ids: number[],
+  stream: boolean
+}
+function normalizeByIdsQuery(req:Request):ByIdsQuery {
+  const log = getLogger(MODULE, normalizeByIdsQuery);
+  const q = req.query;
+  const nz1 = (k:string) => normalizeZeroOrOne(q[k], 'throw');
+  const nb = (k:string, def:boolean=false):boolean => {
+    return normalizeBoolean(nz1(k), {default: def, name: k}) as boolean;
+  };
+  let result!:ByIdsQuery;
+  try {
+    result = {
+      ids: normalizeArrayOfInts(q.id),
+      stream: nb('stream')
+    }
+  } catch(e) {
+    log.error('failed to normalize %s', JSON.stringify(q));
+    throw e;
+  }
+  log.verbose('normalized to %s', JSON.stringify(result));
+  return result;
+}
 
 interface SearchQuery {
   stream: boolean
@@ -64,24 +89,20 @@ export function articleRoutes(app: Application<AppMeta>) {
 
   ctx.get('/byId', PUBLIC, async (req, res) => {
     const log = getLogger(MODULE, 'GET', '/article/byId');
-    const idParam = req.query.id;
-    if (!idParam) {
+    const q = normalizeByIdsQuery(req);
+    log.silly('q %s', q);
+    const out = outputHandler(q.stream, res);
+    if (!q.ids) {
       res.json([]); // Return empty array if no id parameter is provided
       return;
     }
 
-    log.debug('idParam: ', idParam);
+    log.debug('q: %s', q);
 
-    const ids = (Array.isArray(idParam) ? idParam : [idParam]).map(
-        id => id.split(',').map(Number)
-      ).flat();
-    log.debug('Parsed IDs: ', ids);
-    if (ids.some(isNaN)) {
-      return res.status(400).json({ error: 'Invalid id parameter' });
-    }
+    const cb = (article:ArticlesRow) => out.object(article.toJSON());
 
-    await ArticlesRow.loadArticlesByIds(ids).then(articles => {
-      res.json(articles);
+    await ArticlesRow.loadArticlesByIds(q.ids, undefined, cb).then(() => {
+      out.end();
     }).catch(err => {
       log.error('Error loading articles by IDs:', err);
       res.status(500).json({ error: 'Failed to load articles by IDs' });

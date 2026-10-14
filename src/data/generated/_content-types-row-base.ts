@@ -26,6 +26,7 @@ export class _ContentTypesRowBase extends ImmutableRow {
   readonly name = new Column<string>('name', TypeValidators.string, true);  // string
   readonly form_factor_id = new Column<number>('form_factor_id', TypeValidators.number, true);  // number
 
+
   get form_factor(): _FormFactorsRowBase | null | undefined {
     const value = this.form_factor_id.toJSON();
     if (value === undefined || value === null) return value;
@@ -44,6 +45,9 @@ export class _ContentTypesRowBase extends ImmutableRow {
       row.id,
       row.name,
       row.form_factor_id,
+    );
+    row._registerImmutableRefs(
+      'form_factor'
     );
     return row;
   }

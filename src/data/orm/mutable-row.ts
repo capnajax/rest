@@ -90,7 +90,9 @@ export abstract class MutableRow {
     for (const rel of statics.relationshipDefs ?? []) {
       if (rel.kind !== 'single') continue;
       const row = this._getSingleRelationship(rel.name);
-      if (row !== undefined) result[rel.name] = row === null ? null : row.toJSON();
+      if (row !== undefined) {        
+        result[rel.name] = row === null ? null : row.toJSON();
+      }
     }
 
     return result;

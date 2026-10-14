@@ -70,19 +70,17 @@ const formats: Record<string, FormatType> = {
   json: () => winston.format.json(),
   detailed: (mmp: MMP, levelConfig: LoggerLevelConfig) =>
     winston.format.combine(
-      winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-      winston.format.printf(({ timestamp, level, message, ...meta }) => {
+      winston.format.printf(({ level, message, ...meta }) => {
         const context = buildContextString(mmp, levelConfig, false);
 
         const levelTag:string = getLevelTag(level)
 
-        return `${timestamp} ${levelTag} ${context} ${message}`;
+        return `${levelTag} ${context} ${message}`;
       })
     ),
   colored: (mmp: MMP, levelConfig: LoggerLevelConfig) =>
     winston.format.combine(
-      winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-      winston.format.printf(({ timestamp, level, message, ...meta }) => {
+      winston.format.printf(({ level, message, ...meta }) => {
         const reset = '\x1b[0m';
 
         const context = buildContextString(mmp, levelConfig);
@@ -97,14 +95,13 @@ const formats: Record<string, FormatType> = {
           silly:   '\x1b[90m[\x1b[90m    s \x1b[90m]\x1b[0m',
         }[level] || '\x1b[37m[\x1b[90m      \x1b[37m]\x1b[0m';
 
-        return `${timestamp} ${levelTag} ${context}${reset} ${message}`;
+        return `${levelTag} ${context}${reset} ${message}`;
       })
     ),
   httpRequest: () => {
     // special format for HTTP request logs, expects message to be
     // HttpRequestLogData
     return winston.format.combine(
-      winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
       winston.format.printf(({ timestamp, level, message, ...meta }) => {
         if (isHttpRequestLogData(message)) {
           const { method, url, statusCode, durationMs } = message;
@@ -238,7 +235,7 @@ function buildLevelConfig(
   let resultConfig:LoggerLevelConfig =
     deepMerge<LoggerLevelConfig>(
       DEFAULT_LEVEL_CONFIG,
-      omit(baseConfig, 'modules'
+      omit(baseConfig as Record<string, unknown>, 'modules'
     ) as LoggerLevelConfig) || {};
 
   if (options) {
@@ -249,7 +246,11 @@ function buildLevelConfig(
   
   // Apply module config
   if (baseConfig.modules?.[module]) {
-    const moduleConfig = omit(baseConfig.modules[module], 'methods') as Partial<LoggerLevelConfig>;
+    const moduleConfig =
+      omit(
+        baseConfig.modules[module] as Record<string, unknown>,
+        'methods'
+      ) as Partial<LoggerLevelConfig>;
     if (Object.keys(moduleConfig).length > 0) {
       resultConfig = deepMerge(resultConfig, moduleConfig);
     }
@@ -257,7 +258,10 @@ function buildLevelConfig(
 
   // Apply method config
   if (baseConfig.modules?.[module]?.methods?.[method]) {
-    const methodConfig = omit(baseConfig.modules[module].methods[method], 'paths') as Partial<LoggerLevelConfig>;
+    const methodConfig =
+      omit(
+        baseConfig.modules[module].methods[method] as Record<string, unknown>,
+      'paths') as Partial<LoggerLevelConfig>;
     if (Object.keys(methodConfig).length > 0) {
       resultConfig = deepMerge(resultConfig, methodConfig);
     }
@@ -411,7 +415,8 @@ export function getLogger(
   const levelConfig = buildLevelConfig(module, method, path, collapsedOptions);
 
   console.log(
-    'Logger %s level for %s', getLevelTag(levelConfig.level || ''), cacheKey
+    '\x1b[90m[logger]\x1b[0m Creating logger level %s for %s',
+    getLevelTag(levelConfig.level || ''), cacheKey
   );
 
   // Build format with context awareness

@@ -47,6 +47,29 @@ export function isNil(value: any): value is null | undefined {
   return value === null || value === undefined;
 }
 
+export function normalizeArrayOfInts(
+  value?:string|string[]
+):number[] {
+
+  if (value === undefined || value === '') {
+    return [];
+  }
+
+  const result:number[] = [];
+  if (!Array.isArray(value)) {
+    value = [value];
+  }
+  for (const v of value) {
+    if (v !== '') {
+      result.push(...v.split(/,\s*/).map(v => Number.parseInt(v)))
+    }
+  }
+  if (result.some(v => Number.isNaN(v))) {
+    throw invalidQuery
+  }
+  return result;
+}
+
 /**
  * Normalize a parameter that could be a string or an array of strings,
  * to a single string. Returns undefined if either no value or an
@@ -113,14 +136,55 @@ export function normalizeBoolean(
   }          
 };
 
-export function omit(obj: any, ...keys: string[]): any {
+/**
+ * Returns a copy of a `Record` that does not contain any of the entries listed
+ * in `keys`.
+ * @param o the object to copy
+ * @param keys the keys to include.
+ * @returns a copy of the object without the given keys
+ */
+export function omit(
+  o: Record<string, unknown>,
+  ...keys:readonly (string|(readonly string[]))[]
+):Record<string, unknown> {
   const result: any = {};
-  for (const key in obj) {
-    if (obj.hasOwnProperty(key) && !keys.includes(key)) {
-      result[key] = obj[key];
+  const flatKeys = keys.flat();
+  for (const key in o) {
+    if (!flatKeys.includes(key)) {
+      result[key] = o[key];
     }
   }
   return result;
+}
+
+/**
+ * Returns a copy of a `Record` that contains only the entries listed in `keys`.
+ * If the object key is missing from the original object, there will be no
+ * entry in the new object either.
+ * @param o the object to copy
+ * @param keys the keys to include.
+ * @returns a copy of the object with only the listed keys.
+ */
+export function pick(
+  o: Record<string, unknown>,
+  ...keys:readonly (string|(readonly string[]))[]
+):Record<string, unknown> {
+  const resultEntries:[string, unknown][] = [];
+  const addIfAvailable = (key: string) => {
+    if (Object.hasOwn(o, key)) {
+      resultEntries.push([key, o[key]])
+    }
+  }
+  for (const k of keys) {
+    if (Array.isArray(k)) {
+      for (const kk of k) {
+        addIfAvailable(kk);
+      }
+    } else {
+      addIfAvailable(k as string);
+    }
+  }
+  return Object.fromEntries(resultEntries);
 }
 
 /**

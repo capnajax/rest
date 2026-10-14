@@ -25,6 +25,7 @@ export class _RealmsRowBase extends ImmutableRow {
   readonly name = new Column<string>('name', TypeValidators.string, true);  // string
 
 
+
   // ── Construction ─────────────────────────────────────────────────────────
 
   _fromRecord(data: Record<string, unknown>): this {

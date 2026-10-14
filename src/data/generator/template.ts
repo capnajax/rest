@@ -217,6 +217,7 @@ export class _${className}RowBase extends ImmutableRow {
   // ── Columns ──────────────────────────────────────────────────────────────
 
 ${immutableDecls}
+
 ${referenceRels.map(r => `
   get ${r.name}(): _${toPascalCase(r.targetTable)}RowBase | null | undefined {
     const value = this.${r.foreignKey}.toJSON();
@@ -237,7 +238,11 @@ ${columns.map(c => {
   }).join('\n')}
     row._registerColumns(
 ${columns.map(c => `      row.${c.name}`).join(',\n')},
-    );
+    );${referenceRels.filter(r => r.isReference).length ? `
+    row._registerImmutableRefs(
+${referenceRels.filter(r => r.isReference).map(r => {
+  return `      '${r.name}'`;
+    }).join(',\n')}\n    );` : ''}
     return row;
   }
 }
