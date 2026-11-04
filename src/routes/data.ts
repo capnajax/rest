@@ -1,5 +1,5 @@
 import { KeyObject } from 'node:crypto';
-import { Application, createRouteContext, Request } from 'filamentjs';
+import { Application, createRouteContext, Request, Response } from 'filamentjs';
 import { ArticlesRecord } from '../data/generated/_articles-row-base.js';
 import { ReferenceData } from '../data/orm/reference-data.js';
 import {
@@ -419,6 +419,69 @@ function combineUpdates(updates: Updates[]): Updates | null {
   return result;
 }
 
+/* @@head handlers
+*/
+
+class OutputHandler {
+
+  private res: Response;
+  private stream: boolean;
+  private _status?: UpdateStatus;
+
+  private hasUpdate: boolean = false;
+  private accumulator?: Updates[];
+  private exceptionedOut:boolean = false;
+
+  constructor(res: Response, stream: boolean, status?: UpdateStatus) {
+    this.res = res;
+    this.stream = stream;
+    this._status = status;
+    if (!stream) {
+      this.accumulator = [];
+    }
+    res.headers.set(
+      'Content-Type',
+      stream ? 'application/x-ndjson' : 'application/json'
+    );
+  }
+
+  get hasException(): boolean { return this.exceptionedOut; }
+
+  get status(): UpdateStatus|undefined { return this._status; }
+  set status(newStatus: UpdateStatus) { this._status = newStatus; }
+
+  async end(): Promise<void> {
+    // message to send if there is nothing to send
+    const nullMessage = this._status ? { status: this._status } : {};
+    if (this.stream) {
+      if (!this.hasUpdate) {
+        await this.res.sendChunk(JSON.stringify(nullMessage) + '\n');
+      }
+    } else {
+      const resultUpdates: Updates | null = combineUpdates(
+        this.accumulator as Updates[]
+      );
+      await this.res.send(JSON.stringify(resultUpdates || nullMessage));
+    }
+    await this.res.end();
+  }
+
+  exceptionOut() {
+    this.exceptionedOut = true;
+  }
+
+  async object (updates: Partial<Updates>): Promise<void> {
+    if (this.exceptionedOut) return;
+    this._status && (updates.status = this._status);
+    if (this.stream) {
+      this.hasUpdate = true;
+      await this.res.sendChunk(JSON.stringify(updates) + '\n');
+    } else {
+      this.accumulator?.push(updates as Updates);
+    }
+  }
+}
+
 export function dataRoutes(app: Application<AppMeta>) {
   const log = getLogger(MODULE, 'dataRoutes');
   const ctx = createRouteContext(app, '/v3/data', ANALYTICS_ENABLED);
@@ -453,48 +516,7 @@ export function dataRoutes(app: Application<AppMeta>) {
 
     const status: UpdateStatus = { date: new Date() };
 
-    res.headers.set(
-      'Content-Type',
-      body.options.stream ? 'application/x-ndjson' : 'application/json'
-    );
-
-    let exceptionedOut = false;
-    const out: {
-      accumulator?: Updates[];
-      hasUpdate?: boolean;
-      object: (updates: Partial<Updates>) => Promise<void>;
-      end: () => Promise<void>;
-    } = body.options.stream
-      ? {
-          hasUpdate: false,
-          object: async (updates): Promise<void> => {
-            if (exceptionedOut) return;
-            updates.status = status;
-            out.hasUpdate = true;
-            await res.sendChunk(JSON.stringify(updates) + '\n');
-          },
-          end: async (): Promise<void> => {
-            if (!out.hasUpdate) {
-              await res.sendChunk(JSON.stringify({ status }) + '\n');
-            }
-            await res.end();
-          },
-        }
-      : {
-          accumulator: new Array<Updates>(),
-          object: async (updates) => {
-            if (exceptionedOut) return;
-            updates.status = status;
-            out.accumulator?.push(updates as Updates);
-          },
-          end: async (): Promise<void> => {
-            const resultUpdates: Updates | null = combineUpdates(
-              out.accumulator as Updates[]
-            );
-            await res.send(JSON.stringify(resultUpdates || { status }));
-            await res.end();
-          },
-        };
+    const out = new OutputHandler(res, body.options.stream, status);
 
     //
     //  There are multiple searches in this request, and we need to know when
@@ -508,7 +530,7 @@ export function dataRoutes(app: Application<AppMeta>) {
         return handle;
       };
       const searchComplete = async (handle: symbol): Promise<void> => {
-        if (!exceptionedOut) {
+        if (!out.hasException) {
           if (!sp.has(handle)) throw 'Internal error';
           sp.delete(handle);
           if (sp.size === 0) {
@@ -521,10 +543,10 @@ export function dataRoutes(app: Application<AppMeta>) {
         if (e instanceof InvalidQuery) {
           log.warn('Invalid query: %s; details: %j', e.message, e.details);
         }
-        if (exceptionedOut) {
+        if (out.hasException) {
           return;
         }
-        exceptionedOut = true;
+        out.exceptionOut();
 
         void (async () => {
           if (res.disconnected || res.closed) {
