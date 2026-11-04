@@ -22,8 +22,28 @@ npm run dev
 - `npm start` - Run production build
 - `npm run lint` - Lint code
 - `npm run format` - Format code
+- `npm run format:check` - Check formatting without changing files
 - `npm run docker:build` - Build Docker image
 - `npm run docker:up` - Run with Docker Compose
+
+## Formatting
+
+Run `npm run format` from `rest/` to format supported project files, or
+`npm run format:check` to check them without writing changes. Generated ORM
+files, build output, dependencies, logs and the package lock are excluded.
+
+The Prettier configuration targets 80 columns, with two-space indentation,
+semicolons, single quotes, ES5 trailing commas and LF line endings. Operators
+stay at the end of lines. The existing indentation and quote preferences are
+retained where AGENTS.md does not specify them.
+
+Prettier treats 80 columns as a target, so some lines can remain longer. It also
+chooses its own function and ternary layouts, which can differ from AGENTS.md.
+Import ordering, module and class member ordering, naming, language conventions
+and decisions about comments or exports still require review or lint rules.
+
+For editor formatting, select the Prettier extension as the default formatter
+and enable format on save. It will discover `rest/.prettierrc` automatically.
 
 ## Project Structure
 

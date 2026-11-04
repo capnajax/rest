@@ -3,7 +3,6 @@
 
 import { Column, TypeValidators } from '../orm/column.js';
 import { ImmutableRow } from '../orm/immutable-row.js';
-import { ReferenceData }   from '../orm/reference-data.js';
 
 
 // ── Schema interface ───────────────────────────────────────────────────────
@@ -13,6 +12,7 @@ export interface DbPropertiesSchema {
   name: string;
   value: string;
 }
+export type DbPropertiesRecord = {id: number} & Partial<DbPropertiesSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -43,6 +43,3 @@ export class _DbPropertiesRowBase extends ImmutableRow {
     return row;
   }
 }
-
-// Register so ReferenceData.initialize() finds this class automatically.
-ReferenceData.register(_DbPropertiesRowBase as any);

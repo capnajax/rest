@@ -4,7 +4,7 @@
 import { Column, TypeValidators } from '../orm/column.js';
 import { ImmutableRow } from '../orm/immutable-row.js';
 import { ReferenceData }   from '../orm/reference-data.js';
-import type { _FormFactorsRowBase } from './_form-factors-row-base.js';
+import type { FormFactorsRow } from '../tables/form-factors-row.js';
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -13,6 +13,7 @@ export interface ContentTypesSchema {
   name: string;
   form_factor_id: number;
 }
+export type ContentTypesRecord = {id: number} & Partial<ContentTypesSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -27,10 +28,10 @@ export class _ContentTypesRowBase extends ImmutableRow {
   readonly form_factor_id = new Column<number>('form_factor_id', TypeValidators.number, true);  // number
 
 
-  get form_factor(): _FormFactorsRowBase | null | undefined {
+  get form_factor(): FormFactorsRow | null | undefined {
     const value = this.form_factor_id.toJSON();
     if (value === undefined || value === null) return value;
-    return (ReferenceData.byTableId('form_factors', value, 'id') ?? null) as _FormFactorsRowBase | null;
+    return (ReferenceData.byTableId('form_factors', value, 'id') ?? null) as FormFactorsRow | null;
   }
 
 
@@ -52,6 +53,3 @@ export class _ContentTypesRowBase extends ImmutableRow {
     return row;
   }
 }
-
-// Register so ReferenceData.initialize() finds this class automatically.
-ReferenceData.register(_ContentTypesRowBase as any);

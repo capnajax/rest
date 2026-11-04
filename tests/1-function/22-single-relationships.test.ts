@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import type { PoolClient } from 'pg';
-import { _ArticlesRowBase, _ContentTypesRowBase, _PermalinksRowBase } from '../../src/data/generated/index.js';
+import { _ArticlesRowBase, ContentTypesRow, _PermalinksRowBase } from '../../src/data/generated/index.js';
 import { initializeLogger, resetLogger } from '../../src/util/logger.js';
 import { ReferenceData } from '../../src/data/orm/reference-data.js';
 
@@ -28,12 +28,15 @@ before(async () => {
 
 test('reference getters use the startup snapshot and follow the current FK without queries', async () => {
   const row = new _ArticlesRowBase({ id: 10, content_type_id: 1 }, true);
-  assert.equal(row.content_type, ReferenceData.byId(_ContentTypesRowBase, 1));
+  assert.equal(row.content_type, ReferenceData.byId(ContentTypesRow, 1));
   await row.loadRelationship('content_type'); // No database connection configured or needed.
   assert.equal(row.isDirty(), false);
   row.content_type_id.value = 2;
   assert.equal(row.content_type?.name.value, 'Note');
-  assert.deepEqual(row.toJSON().content_type, { id: 2, name: 'Note', form_factor_id: 1 });
+  assert.deepEqual(row.toJSON().content_type, {
+    id: 2, name: 'Note', form_factor_id: 1,
+    form_factor: ReferenceData.byTableId('form_factors', 1)
+  });
   assert.throws(() => { row.content_type!.name.value = 'Changed'; }, /immutable/);
 });
 
@@ -134,7 +137,7 @@ test('loadAll includes direct and link collections alongside single targets', as
 
 
 test('inferred reference-to-reference getters resolve from the startup snapshot', () => {
-  const type = ReferenceData.byId(_ContentTypesRowBase, 1)!;
+  const type = ReferenceData.byId(ContentTypesRow, 1)!;
   assert.equal(type.form_factor?.name.value, 'feature');
   assert.equal(ReferenceData.byTableId('content_types', 'Article', 'name'), type);
 });

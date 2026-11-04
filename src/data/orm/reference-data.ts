@@ -28,8 +28,8 @@ export class ReferenceData {
   private static _registered: ImmutableRowConstructor<any>[] = [];
 
   /**
-   * Register a reference-table row class. Generated reference-table files
-   * call this at module load time.
+   * Register a public reference-table row class. Hand-maintained row
+   * modules call this at module load time; base classes are not registered.
    */
   static register<T extends ImmutableRow>(ctor: ImmutableRowConstructor<T>): void {
     ReferenceData._registered.push(ctor);

@@ -47,6 +47,10 @@ test('rebuild infers reference relationships and preserves extension files', asy
     writeGeneratedFiles(tables, config.outputDir, root);
     const stub = join(root, 'src/data/tables/content-types-row.ts');
     assert.match(readFileSync(stub, 'utf8'), /-row-base\.js'/);
+    assert.match(
+      readFileSync(stub, 'utf8'),
+      /ReferenceData\.register\(ContentTypesRow\)/
+    );
     const custom = readFileSync(stub, 'utf8') + '\n// Custom extension\n';
     writeFileSync(stub, custom);
     // Simulate stale output from an earlier generation.
@@ -59,14 +63,14 @@ test('rebuild infers reference relationships and preserves extension files', asy
       assert.match(source, table.isReference ? /extends ImmutableRow/ : /extends MutableRow/);
       assert.match(source, /import \{ Column, TypeValidators \}/);
       if (table.tableName === 'articles') {
-        assert.match(source, /get content_type\(\): _ContentTypesRowBase \| null \| undefined/);
+        assert.match(source, /get content_type\(\): ContentTypesRow \| null \| undefined/);
         assert.match(source, /get primary_permalink\(\): _PermalinksRowBase \| null \| undefined/);
         assert.match(source, /foreignKey: 'content_type_id', isReference: true/);
         assert.match(source, /foreignKey: 'primary_permalink_id', isReference: false/);
         assert.match(source, /get tags\(\): RelationshipArray<_TagsRowBase>/);
       }
       if (table.tableName === 'content_types') {
-        assert.match(source, /get form_factor\(\): _FormFactorsRowBase/);
+        assert.match(source, /get form_factor\(\): FormFactorsRow/);
       }
       if (table.isReference) {
         assert.match(source, /TypeValidators.string, true/);

@@ -24,6 +24,7 @@ export interface AnalyticsRecordsSchema {
   status_code: string | null;
   latency_ms: number | null;
 }
+export type AnalyticsRecordsRecord = {id: number} & Partial<AnalyticsRecordsSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -128,6 +129,54 @@ export class _AnalyticsRecordsRowBase extends MutableRow {
       default:
         return this.loadSummary(connection);
     }
+  }
+
+  // ── Export methods ────────────────────────────────────────────────────────
+  /**
+   * Generates an object representation of the current state of this
+   * row object. Throws if the primary key is not set -- this is only
+   * intended for objects that are already in the database
+   */
+  exportRecord(): {id: number} & Partial<AnalyticsRecordsSchema> {
+    if (!this.id.isLoaded) {
+      throw new Error('Primary Key not set');
+    }
+    const result: {id: number} & Partial<AnalyticsRecordsSchema> = {
+      id: this.id.value as number
+    };
+    if (this.date.isLoaded) {
+      result.date = this.date.value as Date;
+    }
+    if (this.ip.isLoaded) {
+      result.ip = this.ip.value as string | null;
+    }
+    if (this.cookie.isLoaded) {
+      result.cookie = this.cookie.value as string | null;
+    }
+    if (this.method.isLoaded) {
+      result.method = this.method.value as string;
+    }
+    if (this.pathname.isLoaded) {
+      result.pathname = this.pathname.value as string;
+    }
+    if (this.url.isLoaded) {
+      result.url = this.url.value as string | null;
+    }
+    if (this.request_headers.isLoaded) {
+      result.request_headers =
+        this.request_headers.value as Record<string, unknown> | null;
+    }
+    if (this.response_headers.isLoaded) {
+      result.response_headers =
+        this.response_headers.value as Record<string, unknown> | null;
+    }
+    if (this.status_code.isLoaded) {
+      result.status_code = this.status_code.value as string | null;
+    }
+    if (this.latency_ms.isLoaded) {
+      result.latency_ms = this.latency_ms.value as number | null;
+    }
+    return result;
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

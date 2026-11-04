@@ -1,6 +1,25 @@
+import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 import TestBattery from 'test-battery';
-import { deepClone, deepMerge } from '../../src/util/tools.js';
+import { InvalidQuery } from '../../src/util/exceptions.js';
+import {
+  assertPGableInteger,
+  assertPGableIntegerArray,
+  assertRecord,
+  deepClone,
+  deepMerge,
+  earlierDate,
+  isValidDate,
+  normalizeBoolean,
+  normalizeDate,
+  normalizeZeroOrOne,
+  outputHandler,
+  pick,
+} from '../../src/util/tools.js';
+
+function isInvalidQuery(error: unknown): boolean {
+  return error instanceof InvalidQuery;
+}
 
 suite('Tools Module', () => {
   TestBattery.test('deepClone primitives', (battery) => {
@@ -328,5 +347,202 @@ suite('Tools Module', () => {
       .value((merged as any).d)
       .value(40)
       .equal;
+  });
+});
+
+suite('Tools regressions and validation', () => {
+  test('deepClone accepts shadowed methods and null prototypes', () => {
+    const shadowed = { hasOwnProperty: 1, nested: { value: 2 } };
+    const clone = deepClone(shadowed);
+    assert.deepEqual(clone, shadowed);
+    assert.notEqual(clone?.nested, shadowed.nested);
+    const record = Object.assign(Object.create(null), { value: 3 });
+    assert.deepEqual(deepClone(record), { value: 3 });
+  });
+
+  test('deepMerge replaces values across scalar, array and object types', () => {
+    const cases: [unknown, unknown][] = [
+      [1, { nested: { value: 2 } }],
+      [null, { value: 2 }],
+      [[1, 2], { value: 3 }],
+      [{ value: 1 }, [2, 3]],
+      [{ value: 1 }, null],
+      [[1, 2], false],
+    ];
+    for (const [before, after] of cases) {
+      const base: { value: unknown } = { value: before };
+      const result = deepMerge(base, { value: after });
+      assert.deepEqual(result, { value: after });
+      assert.equal(JSON.stringify(result), JSON.stringify({ value: after }));
+      assert.equal(base.value, before);
+    }
+  });
+
+  test('deepMerge retains nested siblings across multiple sources', () => {
+    const base: { nested: Record<string, number> } = {
+      nested: { a: 1, b: 2 },
+    };
+    const result = deepMerge(base,
+      { nested: { a: 3 } },
+      { nested: { b: 4 } }
+    );
+    assert.deepEqual(result, { nested: { a: 3, b: 4 } });
+    assert.deepEqual(base, { nested: { a: 1, b: 2 } });
+  });
+
+  test('deepMerge isolates replacement values from every input', () => {
+    for (const value of [undefined, 0, [], {}]) {
+      const base = { value };
+      const source = { value: { nested: { count: 1 } } };
+      const result = deepMerge(base, source) as typeof source;
+      result.value.nested.count = 2;
+      assert.equal(source.value.nested.count, 1);
+      assert.equal(base.value, value);
+    }
+    const source = { items: [{ count: 1 }] };
+    const result = deepMerge({ items: [] as { count: number }[] }, source);
+    result.items[0].count = 2;
+    assert.equal(source.items[0].count, 1);
+  });
+
+  test('deepMerge ignores inherited properties and preserves special keys', () => {
+    const source = Object.assign(Object.create({ inherited: true }), {
+      own: { count: 1 },
+    });
+    assert.deepEqual(deepMerge({}, source), { own: { count: 1 } });
+    const payload = JSON.parse(
+      '{"__proto__":{"injected":true},"constructor":{"prototype":' +
+      '{"injected":true}},"hasOwnProperty":1}'
+    );
+    for (const result of [deepMerge({}, payload), deepMerge(payload)]) {
+      assert.equal(Object.getPrototypeOf(result), Object.prototype);
+      assert.equal(Object.hasOwn(result, '__proto__'), true);
+      assert.equal(result.injected, undefined);
+      assert.deepEqual(JSON.parse(JSON.stringify(result)), payload);
+    }
+    assert.equal(Object.hasOwn(Object.prototype, 'injected'), false);
+  });
+
+  test('deepMerge replaces functions without mutating their properties', () => {
+    const hook = () => 1;
+    const result = deepMerge({ hook }, { hook: { count: 2 } });
+    assert.deepEqual(result, { hook: { count: 2 } });
+    assert.deepEqual(Object.keys(hook), []);
+    assert.equal(deepMerge({ hook }).hook, hook);
+    assert.equal(deepMerge({ hook: {} }, { hook }).hook, hook);
+  });
+
+  test('integer validation enforces PostgreSQL bounds and zero options', () => {
+    for (const value of [-2147483648, 0, 2147483647]) {
+      assert.doesNotThrow(() => assertPGableInteger(value));
+    }
+    for (const value of [
+      -2147483649, 2147483648, 1.5, NaN, Infinity, '1', null,
+    ]) {
+      assert.throws(() => assertPGableInteger(value), isInvalidQuery);
+    }
+    assert.doesNotThrow(() => assertPGableInteger(0, { gezero: true }));
+    assert.doesNotThrow(() => assertPGableInteger(1, { gtzero: true }));
+    assert.throws(
+      () => assertPGableInteger(-1, { gezero: true }), isInvalidQuery
+    );
+    assert.throws(
+      () => assertPGableInteger(0, { gtzero: true }), isInvalidQuery
+    );
+  });
+
+  test('integer array assertion narrows to an array and checks elements', () => {
+    const value: unknown = [1, 2];
+    assertPGableIntegerArray(value);
+    const numbers: number[] = value;
+    assert.equal(numbers.reduce((sum, number) => sum + number, 0), 3);
+    assert.doesNotThrow(() => assertPGableIntegerArray([]));
+    for (const invalid of [1, null, [1, '2'], [NaN], [2147483648]]) {
+      assert.throws(() => assertPGableIntegerArray(invalid), isInvalidQuery);
+    }
+  });
+
+  test('date validation rejects invalid Date objects and strings', () => {
+    const date = new Date('2026-01-01T00:00:00Z');
+    assert.equal(isValidDate(date), true);
+    assert.equal(isValidDate(date.toISOString()), true);
+    assert.equal(normalizeDate(date), date);
+    assert.deepEqual(normalizeDate(date.toISOString()), date);
+    for (const invalid of [new Date(NaN), '', 'invalid date']) {
+      assert.equal(isValidDate(invalid), false);
+      assert.throws(() => normalizeDate(invalid), isInvalidQuery);
+    }
+    for (const invalid of [null, undefined, 0, {}]) {
+      assert.equal(isValidDate(invalid), false);
+    }
+    const later = new Date('2026-02-01T00:00:00Z');
+    assert.equal(earlierDate(date, later), date);
+    assert.equal(earlierDate(later, date), date);
+    assert.equal(earlierDate(date, new Date(date)), date);
+  });
+
+  test('boolean normalisation handles aliases, defaults and invalid input', () => {
+    for (const value of [true, 'TRUE', 'yes', '1', 'sí', 'sim']) {
+      assert.equal(normalizeBoolean(value), true);
+    }
+    for (const value of [false, 'FALSE', 'no', '0', 'não']) {
+      assert.equal(normalizeBoolean(value), false);
+    }
+    assert.equal(normalizeBoolean('STREAM', { name: 'stream' }), true);
+    assert.equal(normalizeBoolean(undefined, { default: false }), false);
+    assert.equal(normalizeBoolean(undefined, { default: true }), true);
+    assert.throws(() => normalizeBoolean(), isInvalidQuery);
+    assert.throws(() => normalizeBoolean('maybe'), isInvalidQuery);
+  });
+
+  test('single-value normalisation applies each multiple-value policy', () => {
+    assert.equal(normalizeZeroOrOne(), undefined);
+    assert.equal(normalizeZeroOrOne([]), undefined);
+    assert.equal(normalizeZeroOrOne(''), '');
+    assert.equal(normalizeZeroOrOne(['a']), 'a');
+    assert.equal(normalizeZeroOrOne(['a', 'b'], 'first'), 'a');
+    assert.equal(normalizeZeroOrOne(['a', 'b'], 'last'), 'b');
+    assert.throws(() => normalizeZeroOrOne(['a', 'b']), isInvalidQuery);
+  });
+
+  test('records reject arrays and pick includes only requested own keys', () => {
+    const record = Object.assign(Object.create({ inherited: 1 }), {
+      a: 2, b: undefined, c: 3,
+    });
+    assert.doesNotThrow(() => assertRecord(record));
+    for (const value of [null, [], 1, 'object']) {
+      assert.throws(() => assertRecord(value), TypeError);
+    }
+    assert.deepEqual(pick(record, ['a', 'b'], 'inherited', 'missing'), {
+      a: 2, b: undefined,
+    });
+  });
+
+  test('output handler frames streaming and buffered JSON responses', () => {
+    for (const stream of [true, false]) {
+      for (const records of [[], [{ id: 1 }, { id: 2 }]]) {
+        const writes: string[] = [];
+        const headers = new Map<string, string>();
+        let ends = 0;
+        const response = {
+          headers,
+          send: (value: string) => { writes.push(value); },
+          sendChunk: (value: string) => { writes.push(value); },
+          end: () => { ends++; },
+        } as unknown as Parameters<typeof outputHandler>[1];
+        const output = outputHandler(stream, response);
+        for (const record of records) output.object(record);
+        if (stream === false) assert.deepEqual(writes, []);
+        output.end();
+        const expected = stream
+          ? records.map(record => JSON.stringify(record) + '\n').join('')
+          : JSON.stringify(records);
+        assert.equal(writes.join(''), expected);
+        assert.equal(headers.get('Content-Type'), stream
+          ? 'application/x-ndjson'
+          : 'application/json');
+        assert.equal(ends, 1);
+      }
+    }
   });
 });

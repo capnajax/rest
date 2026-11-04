@@ -16,6 +16,7 @@ export interface PermalinksSchema {
   name: string;
   article_id: number;
 }
+export type PermalinksRecord = {id: number} & Partial<PermalinksSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -104,6 +105,28 @@ export class _PermalinksRowBase extends MutableRow {
       default:
         return this.loadSummary(connection);
     }
+  }
+
+  // ── Export methods ────────────────────────────────────────────────────────
+  /**
+   * Generates an object representation of the current state of this
+   * row object. Throws if the primary key is not set -- this is only
+   * intended for objects that are already in the database
+   */
+  exportRecord(): {id: number} & Partial<PermalinksSchema> {
+    if (!this.id.isLoaded) {
+      throw new Error('Primary Key not set');
+    }
+    const result: {id: number} & Partial<PermalinksSchema> = {
+      id: this.id.value as number
+    };
+    if (this.name.isLoaded) {
+      result.name = this.name.value as string;
+    }
+    if (this.article_id.isLoaded) {
+      result.article_id = this.article_id.value as number;
+    }
+    return result;
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

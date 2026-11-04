@@ -7,6 +7,7 @@ import { isReady } from '../util/readiness.js';
 import '../data/query.js'; // for side effects only
 
 import { articleRoutes } from './article.js';
+import { dataRoutes } from './data.js';
 import { oauthRoutes } from './oauth.js';
 import { userRoutes } from './user.js';
 
@@ -46,6 +47,7 @@ export function registerRoutes(app: Application<AppMeta, Context>) {
   }
 
   registerRouteGroup('article', articleRoutes);
+  registerRouteGroup('data', dataRoutes);
   registerRouteGroup('oauth', oauthRoutes);
   registerRouteGroup('user', userRoutes);
 

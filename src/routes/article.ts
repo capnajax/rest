@@ -1,10 +1,16 @@
-import { Application, createRouteContext, Request, Response } from 'filamentjs';
-import { AppMeta } from '../meta/meta-types.js';
-import { ANALYTICS_ENABLED, PUBLIC } from '../meta/defaults.js';
+import { Application, createRouteContext, Request } from 'filamentjs';
 import { ArticlesRow } from '../data/tables/articles-row.js';
-
+import { ANALYTICS_ENABLED, PUBLIC } from '../meta/defaults.js';
+import { AppMeta } from '../meta/meta-types.js';
+import { InvalidQuery } from '../util/exceptions.js';
 import { getLogger } from '../util/logger.js';
-import { normalizeArrayOfInts, normalizeBoolean, normalizeZeroOrOne } from '../util/tools.js';
+import {
+  assertPGableIntegerArray,
+  normalizeArray,
+  normalizeBoolean,
+  normalizeZeroOrOne,
+  outputHandler
+} from '../util/tools.js';
 const MODULE= 'article-routes';
 
 interface ByIdsQuery {
@@ -20,8 +26,16 @@ function normalizeByIdsQuery(req:Request):ByIdsQuery {
   };
   let result!:ByIdsQuery;
   try {
+    const values = normalizeArray(q.id ?? '')
+      .flatMap(value => value.split(/,\s*/))
+      .filter(value => value !== '');
+    if (values.some(value => !/^[+-]?\d+$/.test(value))) {
+      throw new InvalidQuery('Expected integer article IDs.');
+    }
+    const ids = values.map(Number);
+    assertPGableIntegerArray(ids);
     result = {
-      ids: normalizeArrayOfInts(q.id),
+      ids,
       stream: nb('stream')
     }
   } catch(e) {
@@ -57,31 +71,6 @@ function normalizeSearchQuery(req:Request):SearchQuery {
   return result;
 }
 
-function outputHandler(stream: boolean, res: Response) {
-  const result = {
-    accumulator: stream ? null : new Array<string>(),
-    object: stream
-      ? (datum:unknown):void => {
-          res.sendChunk(JSON.stringify(datum));
-        }
-      : (datum:unknown):void => {
-          result.accumulator?.push(JSON.stringify(datum));
-        },
-    end: stream
-      ? ():void => { res.end(); }
-      : ():void => {
-        res.send(`[${result.accumulator?.join(',')}]`);
-        res.end();
-      }
-  };
-  Object.freeze(result);
-  res.headers.set(
-    'Content-Type',
-    stream ? 'application/x-ndjson' : 'application/json'
-  );
-  return result;
-}
-
 export function articleRoutes(app: Application<AppMeta>) {
 
   const log = getLogger(MODULE, 'articleRoutes');
@@ -92,7 +81,7 @@ export function articleRoutes(app: Application<AppMeta>) {
     const q = normalizeByIdsQuery(req);
     log.silly('q %s', q);
     const out = outputHandler(q.stream, res);
-    if (!q.ids) {
+    if (q.ids.length === 0) {
       res.json([]); // Return empty array if no id parameter is provided
       return;
     }
@@ -101,7 +90,7 @@ export function articleRoutes(app: Application<AppMeta>) {
 
     const cb = (article:ArticlesRow) => out.object(article.toJSON());
 
-    await ArticlesRow.loadArticlesByIds(q.ids, undefined, cb).then(() => {
+    await ArticlesRow.loadArticlesByIds(q.ids, cb).then(() => {
       out.end();
     }).catch(err => {
       log.error('Error loading articles by IDs:', err);
@@ -116,7 +105,8 @@ export function articleRoutes(app: Application<AppMeta>) {
     log.silly('q', q);
     const out = outputHandler(q.stream, res);
     log.silly('out', out);
-    await ArticlesRow.loadArticles().then(async (articles) => {
+    await ArticlesRow.searchArticles({ limit: 100 })
+      .then(async ({ articles }) => {
       log.info(
         `Loaded ${articles.length} articles: ${JSON.stringify(articles)}`
       );
@@ -150,7 +140,8 @@ export function articleRoutes(app: Application<AppMeta>) {
     log.silly('q', q);
     const out = outputHandler(q.stream, res);
     log.silly('out', out);
-    await ArticlesRow.loadArticles().then(async (articles) => {
+    await ArticlesRow.searchArticles({ limit: 100 })
+      .then(async ({ articles }) => {
       for (const article of articles) {
         await article.loadSummary();
         out.object(article.toJSON());

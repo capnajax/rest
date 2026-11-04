@@ -18,6 +18,7 @@ export interface BylinesSchema {
   sequence: number | null;
   text: string;
 }
+export type BylinesRecord = {id: number} & Partial<BylinesSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -110,6 +111,34 @@ export class _BylinesRowBase extends MutableRow {
       default:
         return this.loadSummary(connection);
     }
+  }
+
+  // ── Export methods ────────────────────────────────────────────────────────
+  /**
+   * Generates an object representation of the current state of this
+   * row object. Throws if the primary key is not set -- this is only
+   * intended for objects that are already in the database
+   */
+  exportRecord(): {id: number} & Partial<BylinesSchema> {
+    if (!this.id.isLoaded) {
+      throw new Error('Primary Key not set');
+    }
+    const result: {id: number} & Partial<BylinesSchema> = {
+      id: this.id.value as number
+    };
+    if (this.person_id.isLoaded) {
+      result.person_id = this.person_id.value as number;
+    }
+    if (this.name.isLoaded) {
+      result.name = this.name.value as string;
+    }
+    if (this.sequence.isLoaded) {
+      result.sequence = this.sequence.value as number | null;
+    }
+    if (this.text.isLoaded) {
+      result.text = this.text.value as string;
+    }
+    return result;
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

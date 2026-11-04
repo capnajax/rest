@@ -5,160 +5,290 @@
 import type { PoolClient } from 'pg';
 import './content-types-row.js';
 import './form-factors-row.js';
-import { _ArticlesRowBase } from '../generated/_articles-row-base.js';
+import {
+  _ArticlesRowBase,
+  ArticlesRecord
+} from '../generated/_articles-row-base.js';
 import './media-row.js';
 import './people-row.js';
 import './permalinks-row.js';
-import { getConnection, QueryOptions, queryWithConnection, returnConnection } from '../query.js';
 import './tags-row.js';
-import { pick } from '../../util/tools.js';
-import { TagsRow } from './tags-row.js';
-import { RelationshipArray } from '../orm/relationship-array.js';
+import {
+  normalizeResultGroupOptions, ResultGrouper, ResultGroupOptions
+} from '../../util/result-grouping.js';
+import {
+  loadByIds,
+  search,
+  SearchOptions,
+  LoadByIdsOptions as SearchToolsLoadByIdsOptions,
+  WhereClause
+} from '../orm/search-tools.js';
+import { ContentTypesRow } from './content-types-row.js';
+import { ANY } from '../orm/pg-types.js';
+import { ReferenceData } from '../orm/reference-data.js';
+import { omit } from '../../util/tools.js';
+
+/**
+ * Options for the `getArticlesByIds` call
+ */
+interface FullGetArticlesOptions extends ResultGroupOptions {
+  /**
+   *  The `PoolConnection` to use to load articles. If none is provided, a new
+   *  connection will be created if needed. 
+   */
+  connection: PoolClient|null,
+  /**
+   *  Only get articles that have been updated since a certain date
+   */
+  ifModifiedSince: Date|null,
+}
+export type GetArticlesOptions = Partial<FullGetArticlesOptions>;
+function normalizeGetArticlesOptions(options: GetArticlesOptions = {})
+: FullGetArticlesOptions {
+  return {
+    ... normalizeResultGroupOptions(options),
+    connection: options.connection || null,
+    ifModifiedSince: null,
+  };
+};
+
+interface LoadByIdsOptions {
+  connection?: PoolClient,
+  ifModifiedSince?: Date
+}
+
+export interface ArticlesFilter {
+  // three states: `true` for "include only this",
+  // `false` for "exclude this", and `undefined` for do not consider this
+  is_hidden?: boolean,
+  // true for "only featured", false for "exclude featured", undefined
+  // for not filtering on featured at all
+  is_featured?: boolean,
+  tagIds?: number[],
+  // no filtering if not included, inclusive if any form factors are
+  // included
+  types?: ('article'|'cheat'|'link'|'rocket')[],
+  ifModifiedSince?: Date,
+  limit: number,
+  offset?: number
+}
 
 export class ArticlesRow extends _ArticlesRowBase {
+  
+  /**
+   * Loads `Articles` from the database or from a cache and calls a callback
+   * with articles as they are loaded. The callback may be called more than once
+   * and will always return an array of one or more articles. Resolves when all
+   * the articles are loaded.
+   * @param ids 
+   * @param connection 
+   * @param cb 
+   */
+  static async getArticlesByIds(
+    ids: (number|string)[],
+    cb: (articles: ArticlesRow[]) => void,
+    options?: GetArticlesOptions
+  ): Promise<void> {
+    const normalizedOptions = normalizeGetArticlesOptions(options);
+    const connection = normalizedOptions.connection;
 
-  static async loadArticlesByIds(
-    ids: (number|string)[],
-    connection?: PoolClient,
-    cb?: (article:ArticlesRow) => void
-  ): Promise<void>;
-  static async loadArticlesByIds(
-    ids: (number|string)[],
-    connection?: PoolClient
-  ): Promise<ArticlesRow[]>;
-  static async loadArticlesByIds(
-    ids: (number|string)[],
-    connection?: PoolClient,
-    cb?: (article:ArticlesRow) => void
-  ): Promise<ArticlesRow[]|void> {
+    const grouper = new ResultGrouper<ArticlesRow>(normalizedOptions, cb);
 
-    // avoid a query if the list is empty
-    if (ids.length === 0) {
-      return [];
+    // TODO future feature: get from a cache
+
+    // load from database
+    const loadOptions: LoadByIdsOptions = {};
+    connection && (loadOptions.connection = connection);
+    if (options?.ifModifiedSince) {
+      loadOptions.ifModifiedSince = options.ifModifiedSince;
+    }
+    await ArticlesRow.loadArticlesByIds(
+      ids, loadOptions, row => grouper.push(row)
+    );
+    grouper.flush();
+  }
+
+  static async searchArticles(
+    filters: ArticlesFilter,
+    connection?: PoolClient,
+  ): Promise<{articles: ArticlesRow[], count: number}>;
+  static async searchArticles(
+    filters: ArticlesFilter,
+    cb: (article: ArticlesRow) => void
+  ): Promise<number>;
+  static async searchArticles(
+    filters: ArticlesFilter,
+    connection: PoolClient,
+    cb: (article: ArticlesRow) => void
+  ): Promise<number>;
+  static async searchArticles(
+    filters: ArticlesFilter,
+    connection?: PoolClient|((articles: ArticlesRow) => void),
+    cb?: (article: ArticlesRow) => void
+  ): Promise<{articles: ArticlesRow[], count: number}|number> {
+
+    if (typeof connection === 'function') {
+      cb = connection;
+      connection = undefined;
     }
 
-    // convert all strings to numbers and filter out duplicates
-    const uniqueIds:number[] = [...new Set(ids.map(id => {
-      const result = typeof id === 'string' ?  Number.parseInt(id) : id;
-      if (Number.isNaN(result)) {
-        throw `invalid id "${id}"`;
+    const loadOptions: SearchOptions = {
+      columns: [
+        'id', 'title', 'last_update', 'COUNT(*) OVER() AS __total_count'
+      ],
+      connection,
+      orderBy: {
+        column: 'last_update',
+        direction: 'DESC'
+      },
+      limit: filters.limit,
+      offset: filters.offset || 0
+    }
+
+    const wheres: WhereClause[] = [];
+
+    const where3State = (property: string, def?:boolean):void => {
+      let fv = (filters as Record<string, any>)[property];
+      if (fv === undefined) { fv = def; }
+      if (fv !== undefined) {
+        wheres.push({
+          column: property,
+          type: 'bool',
+          operator: '=',
+          value: fv
+        });
       }
-      return result;
-    }))];
+    }
+    where3State('is_featured');
+    where3State('is_hidden', false);
+    if (filters.tagIds) {
+      wheres.push({
+        column: 'id',
+        select: 'SELECT article_id FROM article_tag ' +
+          `WHERE tag_id = ANY($$))`,
+        value: [filters.tagIds]
+      });
+    }
+    if (filters.types?.length) {
+      const ctIds: number[] = filters.types
+        .map(name => ReferenceData.byName(ContentTypesRow, name)?.id.value)
+        .filter((id): id is number => typeof id === 'number')
+      wheres.push({
+        column: 'content_type_id',
+        type: 'int',
+        operator: '=',
+        value: ctIds,
+        arrayComparison: ANY
+      });
+    }
+    if (filters.ifModifiedSince) {
+      wheres.push({
+        column: 'last_update',
+        type: 'timestamp',
+        operator: '>=',
+        value: filters.ifModifiedSince
+      });
+    }
 
-    const conn: QueryOptions = {
-      connection: connection ?? await getConnection(),
-      allowHardcoded: true
-    };
-    const ownConn = !connection;
-
-    try {
-      const queryResult = await queryWithConnection(
-        conn, 'article.getSummariesByIds', [uniqueIds]
-      );
-
-      const tags:Record<number, TagsRow> = {};
-
-      const forEachRow = (row:any) => {
-        const useTags:TagsRow[] = [];
-        for (const tag of row.tags as {id: number, title: string,
-          color?: string|null, important: boolean, seq?: number|null}[]) {
-          if (Object.hasOwn(tags, tag.id)) {
-            useTags.push(tags[tag.id])
-          } else {
-            const tagRow = new TagsRow(tag);
-            tags[tag.id] = tagRow;
-            useTags.push(tagRow);
-          }
-        }
-        const article = new ArticlesRow(
-          { ...pick(row, ArticlesRow.columnSets.simple), tags: useTags }
-        );
-        article._relationships.set('tags', new RelationshipArray(useTags));
-        
-        cb && cb(article);
-        return article;
+    const recordToRow = (record: ArticlesRecord&{__total_count:number})
+      : ArticlesRow => {
+        return new ArticlesRow(omit(record, '__total_count'), true);
       };
-
-      if (cb) {
-        queryResult.rows.forEach(forEachRow);
-        return;
-      } else {
-        return queryResult.rows.map(forEachRow); 
-      }
-  
-    } finally {
-      if (ownConn) returnConnection(conn.connection);
+    if (cb) {
+      const loadCb = (row: ArticlesRecord&{__total_count:number}): void => {
+        totalCount ||= row.__total_count;
+        cb(recordToRow(row));
+      };
+      let totalCount = 0;
+      return search<ArticlesRecord&{__total_count:number}>(
+        'articles',
+        wheres,
+        loadOptions,
+        loadCb
+      ).then(() => {
+        return totalCount;
+      });
+    } else {
+      return search<ArticlesRecord&{__total_count:number}>(
+        'articles',
+        wheres,
+        loadOptions
+      ).then(rows => {
+        return {
+          articles: rows.map(r => recordToRow(r)),
+          count: rows.length ? rows[0].__total_count : 0
+        };
+      });
     }
   }
 
-  static async loadArticles(
-    connection?: PoolClient,
-    filters: {
-      // three states: `true` for "include only this",
-      // `false` for "exclude this", and `undefined` for do not consider this
-      is_hidden?: boolean,
-      // true for "only featured", false for "exclude featured", undefined
-      // for not filtering on featured at all
-      is_featured?: boolean,
-      tagIds?: number[],
-      // no filtering if not included, inclusive if any form factors are
-      // included
-      types?: ('article'|'cheat'|'link'|'rocket')[]
-    } = {}
-  ): Promise<ArticlesRow[]> {
-    const conn = connection ?? await getConnection();
-    const ownConn = !connection;
+  /**
+   * Loads `ArticlesRow` objects from the database. Returns a `Promise` that
+   * resolves with all the articles loaded as an array of `ArticlesRow`.
+   * 
+   * Unlike `getArticlesByIds`, this method always loads articles from the
+   * database, and will not be affected by any current or future cacheing or
+   * flow control features.
+   * @param ids the article ids to load
+   * @param connection the database pool connection to use, or `null` to create
+   *  its own connection
+   * @param cb the callback to return articles. The callback will be called once
+   *  per article
+   * @returns a `Promise` that resolves with an array of `ArticlesRow` objects.
+   */
+  static async loadArticlesByIds(
+    ids: (number|string)[],
+    options: LoadByIdsOptions,
+    cb: (article:ArticlesRow) => void,
+  ): Promise<void>;
+  static async loadArticlesByIds(
+    ids: (number|string)[],
+    cb: (article:ArticlesRow) => void,
+  ): Promise<void>;
+  static async loadArticlesByIds(
+    ids: (number|string)[],
+    options?: LoadByIdsOptions
+  ): Promise<ArticlesRow[]>;
+  static async loadArticlesByIds(
+    ids: (number|string)[],
+    options?: ((article:ArticlesRow) => void) | LoadByIdsOptions,
+    cb?: ((article:ArticlesRow) => void),
+  ): Promise<ArticlesRow[]|void> {
 
-    try {
-      const sqlSelect =
-        `SELECT articles.id AS id, last_update, title, ` +
-          `ct.name AS ct, f.name AS ff ` +
-        `FROM articles ` +
-        `JOIN content_types AS ct ON ct.id = articles.content_type_id ` +
-        `JOIN form_factors AS f ON f.id = ct.form_factor_id `
-      const sqlWheres:string[] = [];
-      const sqlOrder = `ORDER BY last_update DESC;`;
-      const queryParams:unknown[] = [];
+    const recordToRow = (record: ArticlesRecord): ArticlesRow => {
+      return new ArticlesRow(record);
+    };
 
-      const where3State = (property: string, def?:boolean):void => {
-        let fv = (filters as Record<string, boolean|undefined>)[property];
-        if (fv === undefined) { fv = def; }
-        if (fv !== undefined) {
-          sqlWheres.push(`${property} = $${queryParams.length+1}::BOOLEAN`);
-          queryParams.push(fv);
-        }
-      }
-      where3State('is_featured');
-      where3State('is_hidden', false);
-      if (filters.tagIds) {
-        sqlWheres.push('articles.id IN (SELECT article_id FROM article_tag ' +
-          `WHERE tag_id = ANY($${queryParams.length+1}::int[]))`)
-        queryParams.push(filters.types);
-      }
-      if (filters.types) {
-        sqlWheres.push(`ct.name = ANY(${queryParams.length+1}::int[]`);
-        queryParams.push(filters.types);
-      }
-      // TODO add filtering on tags
+    if (typeof options === 'function') {
+      cb = options;
+      options = undefined;
+    }
 
-      const sqlWhere = sqlWheres.length
-          ? 'WHERE ' + sqlWheres.join(' AND ') + ' '
-          : '';
+    const loadOptions: SearchToolsLoadByIdsOptions = {};
+    if (options?.connection) {
+      loadOptions.connection = options?.connection;
+    }
+    if (options?.ifModifiedSince) {
+      loadOptions.wheres = [{
+        column: 'last_update',
+        type: 'timestamp',
+        operator: '>=',
+        value: options.ifModifiedSince,
+      }];
+    }
 
-      const sql = sqlSelect + sqlWhere + sqlOrder;
-      console.log(sql);
-      const queryResult = await queryWithConnection(
-        {connection: conn, allowHardcoded: true}, sql, queryParams
+    if (cb) {
+      const loadCb = (record: ArticlesRecord): void => {
+        cb && cb(recordToRow(record));
+      };
+      await loadByIds<ArticlesRecord>(
+        'articles', ids, loadOptions, loadCb
       );
-      const result =
-        queryResult.rows.map(row => {
-          return new this(row as Record<string, unknown>, true);
+    } else {
+      return loadByIds<ArticlesRecord>('articles', ids, loadOptions)
+        .then((records:ArticlesRecord[]) => {
+          return records.map(r => recordToRow(r))
         });
-      return result;
-
-    } finally {
-      if (ownConn) returnConnection(conn);
     }
   }
 }

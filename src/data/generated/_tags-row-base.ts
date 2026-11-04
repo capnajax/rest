@@ -19,6 +19,7 @@ export interface TagsSchema {
   num_articles: number | null;
   title: string;
 }
+export type TagsRecord = {id: number} & Partial<TagsSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -113,6 +114,37 @@ export class _TagsRowBase extends MutableRow {
       default:
         return this.loadSummary(connection);
     }
+  }
+
+  // ── Export methods ────────────────────────────────────────────────────────
+  /**
+   * Generates an object representation of the current state of this
+   * row object. Throws if the primary key is not set -- this is only
+   * intended for objects that are already in the database
+   */
+  exportRecord(): {id: number} & Partial<TagsSchema> {
+    if (!this.id.isLoaded) {
+      throw new Error('Primary Key not set');
+    }
+    const result: {id: number} & Partial<TagsSchema> = {
+      id: this.id.value as number
+    };
+    if (this.color.isLoaded) {
+      result.color = this.color.value as string | null;
+    }
+    if (this.important.isLoaded) {
+      result.important = this.important.value as boolean;
+    }
+    if (this.seq.isLoaded) {
+      result.seq = this.seq.value as number | null;
+    }
+    if (this.num_articles.isLoaded) {
+      result.num_articles = this.num_articles.value as number | null;
+    }
+    if (this.title.isLoaded) {
+      result.title = this.title.value as string;
+    }
+    return result;
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

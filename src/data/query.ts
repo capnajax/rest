@@ -15,6 +15,10 @@ interface Query {
 
 export interface QueryOptions {
   connection: PoolClient,
+  /**
+   * Set to true if sending a query string instead of a reference to a query
+   * in the queries.yaml file or there will be a warning in the logs.
+   */
   allowHardcoded?: boolean
 }
 

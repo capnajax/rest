@@ -3,7 +3,6 @@
 
 import { Column, TypeValidators } from '../orm/column.js';
 import { ImmutableRow } from '../orm/immutable-row.js';
-import { ReferenceData }   from '../orm/reference-data.js';
 
 
 // ── Schema interface ───────────────────────────────────────────────────────
@@ -12,6 +11,7 @@ export interface FormFactorsSchema {
   id: number;
   name: string;
 }
+export type FormFactorsRecord = {id: number} & Partial<FormFactorsSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -39,6 +39,3 @@ export class _FormFactorsRowBase extends ImmutableRow {
     return row;
   }
 }
-
-// Register so ReferenceData.initialize() finds this class automatically.
-ReferenceData.register(_FormFactorsRowBase as any);

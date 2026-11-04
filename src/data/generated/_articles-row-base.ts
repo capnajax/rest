@@ -11,7 +11,7 @@ import type { PoolClient }   from 'pg';
 import type { _PermalinksRowBase } from './_permalinks-row-base.js';
 import type { _MediaRowBase } from './_media-row-base.js';
 import type { _TagsRowBase } from './_tags-row-base.js';
-import type { _ContentTypesRowBase } from './_content-types-row-base.js';
+import type { ContentTypesRow } from '../tables/content-types-row.js';
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -29,6 +29,7 @@ export interface ArticlesSchema {
   is_featured: boolean;
   is_hidden: boolean;
 }
+export type ArticlesRecord = {id: number} & Partial<ArticlesSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -79,8 +80,8 @@ export class _ArticlesRowBase extends MutableRow {
   get tags(): RelationshipArray<_TagsRowBase> | undefined {
     return this._relationships.get('tags');
   }
-  get content_type(): _ContentTypesRowBase | null | undefined {
-    return this._getSingleRelationship('content_type') as _ContentTypesRowBase | null | undefined;
+  get content_type(): ContentTypesRow | null | undefined {
+    return this._getSingleRelationship('content_type') as ContentTypesRow | null | undefined;
   }
 
   constructor(
@@ -155,6 +156,56 @@ export class _ArticlesRowBase extends MutableRow {
       default:
         return this.loadSummary(connection);
     }
+  }
+
+  // ── Export methods ────────────────────────────────────────────────────────
+  /**
+   * Generates an object representation of the current state of this
+   * row object. Throws if the primary key is not set -- this is only
+   * intended for objects that are already in the database
+   */
+  exportRecord(): {id: number} & Partial<ArticlesSchema> {
+    if (!this.id.isLoaded) {
+      throw new Error('Primary Key not set');
+    }
+    const result: {id: number} & Partial<ArticlesSchema> = {
+      id: this.id.value as number
+    };
+    if (this.author_id.isLoaded) {
+      result.author_id = this.author_id.value as number;
+    }
+    if (this.active_dt.isLoaded) {
+      result.active_dt = this.active_dt.value as Date | null;
+    }
+    if (this.last_update.isLoaded) {
+      result.last_update = this.last_update.value as Date;
+    }
+    if (this.content_type_id.isLoaded) {
+      result.content_type_id = this.content_type_id.value as number;
+    }
+    if (this.title.isLoaded) {
+      result.title = this.title.value as string | null;
+    }
+    if (this.uuid.isLoaded) {
+      result.uuid = this.uuid.value as string;
+    }
+    if (this.primary_permalink_id.isLoaded) {
+      result.primary_permalink_id =
+        this.primary_permalink_id.value as number | null;
+    }
+    if (this.info.isLoaded) {
+      result.info = this.info.value as Record<string, unknown>;
+    }
+    if (this.byline_id.isLoaded) {
+      result.byline_id = this.byline_id.value as number | null;
+    }
+    if (this.is_featured.isLoaded) {
+      result.is_featured = this.is_featured.value as boolean;
+    }
+    if (this.is_hidden.isLoaded) {
+      result.is_hidden = this.is_hidden.value as boolean;
+    }
+    return result;
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

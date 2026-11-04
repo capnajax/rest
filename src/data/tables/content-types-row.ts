@@ -4,6 +4,7 @@
 //   static byCode(code: string) { return ReferenceData.all(ContentTypesRow).find(...) }
 
 import { _ContentTypesRowBase } from '../generated/_content-types-row-base.js';
+import { ReferenceData } from '../orm/reference-data.js';
 
 export class ContentTypesRow extends _ContentTypesRowBase {
   toJSON(): Record<string, unknown> {
@@ -13,3 +14,5 @@ export class ContentTypesRow extends _ContentTypesRowBase {
     return result;
   }
 }
+
+ReferenceData.register(ContentTypesRow);

@@ -45,6 +45,7 @@ export function generateMutableBase(table: TableInfo): string {
   const relatedTables = [...new Set(relationships.map(r => r.targetTable))];
 
   const schemaInterface = generateSchemaInterface(className, columns);
+  const exportMethod    = generateExportMethod(className, columns);
   const columnDecls     = generateColumnDecls(columns);
   const relDecls        = generateRelDecls(relationships);
   const relDefs         = generateRelDefs(relationships);
@@ -53,7 +54,12 @@ export function generateMutableBase(table: TableInfo): string {
   const relImports = relatedTables.length > 0
     ? relatedTables.map(t => {
         const cls = toPascalCase(t);
-        return `import type { _${cls}RowBase } from './_${toKebabCase(t)}-row-base.js';`;
+        const reference = relationships.some(
+          r => r.targetTable === t && r.isReference
+        );
+        return reference
+          ? `import type { ${cls}Row } from '../tables/${toKebabCase(t)}-row.js';`
+          : `import type { _${cls}RowBase } from './_${toKebabCase(t)}-row-base.js';`;
       }).join('\n')
     : '';
 
@@ -156,6 +162,9 @@ ${columns.map(c => `      this.${c.name}`).join(',\n')},
     }
   }
 
+  // ── Export methods ────────────────────────────────────────────────────────
+${exportMethod}
+
   // ── Static factory methods ────────────────────────────────────────────────
 
 ${factoryMethods}
@@ -184,7 +193,7 @@ export function generateImmutableBase(table: TableInfo): string {
   const { tableName, className, pkColumn, columns, relationships } = table;
   const referenceRels = relationships.filter(r => r.kind === 'single' && r.isReference);
   const referenceImports = [...new Set(referenceRels.map(r => r.targetTable))].map(t =>
-    `import type { _${toPascalCase(t)}RowBase } from './_${toKebabCase(t)}-row-base.js';`,
+    `import type { ${toPascalCase(t)}Row } from '../tables/${toKebabCase(t)}-row.js';`,
   ).join('\n');
 
   const schemaInterface = generateSchemaInterface(className, columns);
@@ -219,10 +228,10 @@ export class _${className}RowBase extends ImmutableRow {
 ${immutableDecls}
 
 ${referenceRels.map(r => `
-  get ${r.name}(): _${toPascalCase(r.targetTable)}RowBase | null | undefined {
+  get ${r.name}(): ${toPascalCase(r.targetTable)}Row | null | undefined {
     const value = this.${r.foreignKey}.toJSON();
     if (value === undefined || value === null) return value;
-    return (ReferenceData.byTableId('${r.targetTable}', value${r.targetColumn ? `, '${r.targetColumn}'` : ''}) ?? null) as _${toPascalCase(r.targetTable)}RowBase | null;
+    return (ReferenceData.byTableId('${r.targetTable}', value${r.targetColumn ? `, '${r.targetColumn}'` : ''}) ?? null) as ${toPascalCase(r.targetTable)}Row | null;
   }
 `).join('')}
 
@@ -246,9 +255,6 @@ ${referenceRels.filter(r => r.isReference).map(r => {
     return row;
   }
 }
-
-// Register so ReferenceData.initialize() finds this class automatically.
-ReferenceData.register(_${className}RowBase as any);
 `;
 }
 
@@ -289,20 +295,68 @@ export function generateImmutableStub(table: TableInfo): string {
 //   static byCode(code: string) { return ReferenceData.all(${className}Row).find(...) }
 
 import { _${className}RowBase } from '${baseFile}';
+import { ReferenceData } from '../orm/reference-data.js';
 
 export class ${className}Row extends _${className}RowBase {
 }
+
+ReferenceData.register(${className}Row);
 `;
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────
 
-function generateSchemaInterface(className: string, columns: ColumnInfo[]): string {
+function generateSchemaInterface(className: string, columns: ColumnInfo[])
+: string {
+  const pkFields = columns.filter(c => c.isPrimaryKey).map(c => {
+    return `${c.name}: ${c.tsType}`
+  });
   const fields = columns.map(c => {
     const tsType = c.isNullable ? `${c.tsType} | null` : c.tsType;
     return `  ${c.name}: ${tsType};`;
   }).join('\n');
-  return `export interface ${className}Schema {\n${fields}\n}`;
+  return `export interface ${className}Schema {\n${fields}\n}\n` +
+    `export type ${className}Record = {${pkFields.join(', ')}} & Partial<${className}Schema>;`;
+}
+
+function generateExportMethod(className: string, columns: ColumnInfo[])
+: string {
+  let pkIsUnset:string[] = [];
+  let pkTypeFields:string[] = [];
+  let pkFields:string[] = [];
+  let dataFields:string[] = [];
+  for (const column of columns) {
+    if (column.isPrimaryKey) {
+      pkTypeFields.push(`${column.name}: ${column.tsType}`);
+      pkFields.push(`      ${column.name}: this.${column.name}.value as ${column.tsType}`);
+      pkIsUnset.push(`!this.${column.name}.isLoaded`);
+    } else {
+      const assignmentLValue = `      result.${column.name} =`;
+      let assignmentRValue = `this.${column.name}.value as ${column.tsType}`;
+      if (column.isNullable) {
+        assignmentRValue += ' | null'
+      }      
+      const assignment = assignmentLValue.length + assignmentRValue.length > 79
+        ? `${assignmentLValue}\n        ${assignmentRValue};`
+        : `${assignmentLValue} ${assignmentRValue};`
+      dataFields.push(
+        `    if (this.${column.name}.isLoaded) {\n${assignment}\n    }`);
+    }
+  }
+  const returnType = `{${pkTypeFields.join(', ')}} & ` + 
+    `Partial<${className}Schema>`;
+  const pkGuard = `    if (${pkIsUnset.join(' || ')}) {\n` + 
+    `      throw new Error('Primary Key not set');\n` +
+    `    }`;
+  return '  /**\n' +
+    '   * Generates an object representation of the current state of this\n' +
+    '   * row object. Throws if the primary key is not set -- this is only\n' +
+    '   * intended for objects that are already in the database\n' +
+    '   */\n' + 
+    `  exportRecord(): ${returnType} {\n${pkGuard}\n` +
+    `    const result: ${returnType} = {\n${pkFields.join(',\n')}\n    };\n` +
+    dataFields.join('\n') + '\n' +
+    `    return result;\n  }`;
 }
 
 function generateColumnDecls(columns: ColumnInfo[]): string {
@@ -317,7 +371,8 @@ function generateColumnDecls(columns: ColumnInfo[]): string {
 function generateRelDecls(relationships: RelationshipInfo[]): string {
   if (relationships.length === 0) return '  // (none)\n';
   return relationships.map(r => {
-    const cls = `_${toPascalCase(r.targetTable)}RowBase`;
+    const name = toPascalCase(r.targetTable);
+    const cls = r.isReference ? `${name}Row` : `_${name}RowBase`;
     if (r.kind === 'single') {
       return `  get ${r.name}(): ${cls} | null | undefined {
     return this._getSingleRelationship('${r.name}') as ${cls} | null | undefined;

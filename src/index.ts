@@ -20,6 +20,7 @@ import { registerMiddleware } from './routes/middleware/index.js';
 import { registerRoutes } from './routes/index.js';
 import { initializeLogger } from './util/logger.js';
 import parseArgs, { parsedArgs } from './args.js';
+import './data/generated/index.js';
 import { ReferenceData } from './data/orm/reference-data.js';
 
 export async function start(

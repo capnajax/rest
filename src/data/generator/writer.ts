@@ -59,8 +59,7 @@ export function writeGeneratedFiles(
     }
   }
 
-  // Write an index barrel for generated/ so registerRow() and
-  // ReferenceData.register() run when the barrel is imported at startup.
+  // Import public row classes so their registrations run at startup.
   writeBarrel(tables, absOutputDir);
   written.push('generated/index.ts');
 
@@ -69,11 +68,11 @@ export function writeGeneratedFiles(
 
 function writeBarrel(tables: TableInfo[], outputDir: string): void {
   const lines = tables.map(t => {
-    const fileName = `_${toKebabCase(t.tableName)}-row-base.js`;
-    const cls      = t.isReference
-      ? `_${toPascalCase(t.tableName)}RowBase`
-      : `_${toPascalCase(t.tableName)}RowBase`;
-    return `export { ${cls} } from './${fileName}';`;
+    const name = toKebabCase(t.tableName);
+    const cls = toPascalCase(t.tableName);
+    return t.isReference
+      ? `export { ${cls}Row } from '../tables/${name}-row.js';`
+      : `export { _${cls}RowBase } from './_${name}-row-base.js';`;
   });
 
   const content = [

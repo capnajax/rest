@@ -9,7 +9,7 @@ import type { ColumnSets, RelationshipDef } from '../orm/types.js';
 import type { PoolClient }   from 'pg';
 
 import type { _ArticlesRowBase } from './_articles-row-base.js';
-import type { _RealmsRowBase } from './_realms-row-base.js';
+import type { RealmsRow } from '../tables/realms-row.js';
 
 // ── Schema interface ───────────────────────────────────────────────────────
 
@@ -21,6 +21,7 @@ export interface PeopleSchema {
   isauthor: boolean;
   info: Record<string, unknown> | null;
 }
+export type PeopleRecord = {id: number} & Partial<PeopleSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -53,8 +54,8 @@ export class _PeopleRowBase extends MutableRow {
   get articles(): RelationshipArray<_ArticlesRowBase> | undefined {
     return this._relationships.get('articles');
   }
-  get realm(): _RealmsRowBase | null | undefined {
-    return this._getSingleRelationship('realm') as _RealmsRowBase | null | undefined;
+  get realm(): RealmsRow | null | undefined {
+    return this._getSingleRelationship('realm') as RealmsRow | null | undefined;
   }
 
   constructor(
@@ -123,6 +124,37 @@ export class _PeopleRowBase extends MutableRow {
       default:
         return this.loadSummary(connection);
     }
+  }
+
+  // ── Export methods ────────────────────────────────────────────────────────
+  /**
+   * Generates an object representation of the current state of this
+   * row object. Throws if the primary key is not set -- this is only
+   * intended for objects that are already in the database
+   */
+  exportRecord(): {id: number} & Partial<PeopleSchema> {
+    if (!this.id.isLoaded) {
+      throw new Error('Primary Key not set');
+    }
+    const result: {id: number} & Partial<PeopleSchema> = {
+      id: this.id.value as number
+    };
+    if (this.username.isLoaded) {
+      result.username = this.username.value as string;
+    }
+    if (this.displayname.isLoaded) {
+      result.displayname = this.displayname.value as string;
+    }
+    if (this.realm_id.isLoaded) {
+      result.realm_id = this.realm_id.value as number;
+    }
+    if (this.isauthor.isLoaded) {
+      result.isauthor = this.isauthor.value as boolean;
+    }
+    if (this.info.isLoaded) {
+      result.info = this.info.value as Record<string, unknown> | null;
+    }
+    return result;
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

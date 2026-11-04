@@ -18,6 +18,7 @@ export interface MediaSchema {
   last_update: Date;
   data_b64: string;
 }
+export type MediaRecord = {id: number} & Partial<MediaSchema>;
 
 // ── Generated base ─────────────────────────────────────────────────────────
 
@@ -110,6 +111,34 @@ export class _MediaRowBase extends MutableRow {
       default:
         return this.loadSummary(connection);
     }
+  }
+
+  // ── Export methods ────────────────────────────────────────────────────────
+  /**
+   * Generates an object representation of the current state of this
+   * row object. Throws if the primary key is not set -- this is only
+   * intended for objects that are already in the database
+   */
+  exportRecord(): {id: number} & Partial<MediaSchema> {
+    if (!this.id.isLoaded) {
+      throw new Error('Primary Key not set');
+    }
+    const result: {id: number} & Partial<MediaSchema> = {
+      id: this.id.value as number
+    };
+    if (this.article_id.isLoaded) {
+      result.article_id = this.article_id.value as number;
+    }
+    if (this.filename.isLoaded) {
+      result.filename = this.filename.value as string;
+    }
+    if (this.last_update.isLoaded) {
+      result.last_update = this.last_update.value as Date;
+    }
+    if (this.data_b64.isLoaded) {
+      result.data_b64 = this.data_b64.value as string;
+    }
+    return result;
   }
 
   // ── Static factory methods ────────────────────────────────────────────────

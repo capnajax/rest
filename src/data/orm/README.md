@@ -165,7 +165,7 @@ const draft    = ReferenceData.byName(StatusRow, 'draft');
 const status   = ReferenceData.byId(StatusRow, 3);
 ```
 
-`ReferenceData.initialize()` queries every registered reference table. Generated reference-table files call `ReferenceData.register()` at module load time, so importing the generated barrel is sufficient.
+`ReferenceData.initialize()` queries every registered reference table. Public reference-table row modules call `ReferenceData.register()` at module load time. Import the generated barrel before initialization to register every public reference row class. The snapshot contains instances of those public classes, including their custom methods.
 
 ---
 

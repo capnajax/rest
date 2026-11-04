@@ -4,6 +4,9 @@
 //   static byCode(code: string) { return ReferenceData.all(FormFactorsRow).find(...) }
 
 import { _FormFactorsRowBase } from '../generated/_form-factors-row-base.js';
+import { ReferenceData } from '../orm/reference-data.js';
 
 export class FormFactorsRow extends _FormFactorsRowBase {
 }
+
+ReferenceData.register(FormFactorsRow);

@@ -4,6 +4,9 @@
 //   static byCode(code: string) { return ReferenceData.all(RealmsRow).find(...) }
 
 import { _RealmsRowBase } from '../generated/_realms-row-base.js';
+import { ReferenceData } from '../orm/reference-data.js';
 
 export class RealmsRow extends _RealmsRowBase {
 }
+
+ReferenceData.register(RealmsRow);

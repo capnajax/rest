@@ -30,7 +30,8 @@ For each table in the `public` schema the generator produces a single file:
 - Static `relationshipDefs` from `orm.config.yaml`.
 - `loadSummary()`, `loadSimple()`, `loadAll()` instance methods.
 - Static `findById()` and `findByName()` factory methods (mutable tables only).
-- A `registerRow()` or `ReferenceData.register()` call at the bottom.
+- Mutable bases register with `registerRow()`; reference row extensions
+  register with `ReferenceData.register()` and are imported by the barrel.
 
 A barrel `index.ts` is also written that re-exports every generated class. Import it once at startup so all registrations run before any queries execute.
 
