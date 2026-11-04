@@ -127,9 +127,7 @@ export interface OAuthProvider {
    * @param token Access token
    * @returns User information (sub, username, etc.)
    */
-  getUserInfo(
-    token: string
-  ): Promise<{
+  getUserInfo(token: string): Promise<{
     sub: string;
     username?: string;
     email?: string;

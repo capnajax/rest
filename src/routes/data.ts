@@ -35,9 +35,19 @@ const MODULE = 'data-routes';
 
 const DEFAULT_LIMIT = 100;
 
-//
-//  Input types
-//
+/* @@head Inputs
+
+
+`7MMF'                                  mm
+  MM                                    MM
+  MM  `7MMpMMMb. `7MMpdMAo.`7MM  `7MM mmMMmm ,pP"Ybd
+  MM    MM    MM   MM   `Wb  MM    MM   MM   8I   `"
+  MM    MM    MM   MM    M8  MM    MM   MM   `YMMMa.
+  MM    MM    MM   MM   ,AP  MM    MM   MM   L.   I8
+.JMML..JMML  JMML. MMbmmd'   `Mbod"YML. `MbmoM9mmmP'
+                   MM
+                 .JMML.
+ */
 
 const articleSearchFilterTypes = ['feed', 'sidebar'];
 type ArticleSearchFilterType = 'feed' | 'sidebar';
@@ -205,9 +215,19 @@ function searchObjectReducer(
   return accumulator;
 }
 
-//
-//  Output types
-//
+/* @@head Outputs
+
+
+  .g8""8q.                mm                          mm
+.dP'    `YM.              MM                          MM
+dM'      `MM `7MM  `7MM mmMMmm `7MMpdMAo.`7MM  `7MM mmMMmm ,pP"Ybd
+MM        MM   MM    MM   MM     MM   `Wb  MM    MM   MM   8I   `"
+MM.      ,MP   MM    MM   MM     MM    M8  MM    MM   MM   `YMMMa.
+`Mb.    ,dP'   MM    MM   MM     MM   ,AP  MM    MM   MM   L.   I8
+  `"bmmd"'     `Mbod"YML. `Mbmo  MMbmmd'   `Mbod"YML. `MbmoM9mmmP'
+                                 MM
+                               .JMML.
+ */
 
 type TableKey = 'article' | 'contentType' | 'formFactor' | 'tag';
 const tableKeys: TableKey[] = ['article', 'contentType', 'formFactor', 'tag'];
@@ -402,6 +422,20 @@ function combineUpdates(updates: Updates[]): Updates | null {
 export function dataRoutes(app: Application<AppMeta>) {
   const log = getLogger(MODULE, 'dataRoutes');
   const ctx = createRouteContext(app, '/v3/data', ANALYTICS_ENABLED);
+
+  /* @@head Endpoints
+  
+                                ,,                      ,,
+  `7MM"""YMM                  `7MM                      db              mm
+    MM    `7                    MM                                      MM
+    MM   d    `7MMpMMMb.   ,M""bMM `7MMpdMAo.  ,pW"Wq.`7MM  `7MMpMMMb.mmMMmm ,pP"Ybd
+    MMmmMM      MM    MM ,AP    MM   MM   `Wb 6W'   `Wb MM    MM    MM  MM   8I   `"
+    MM   Y  ,   MM    MM 8MI    MM   MM    M8 8M     M8 MM    MM    MM  MM   `YMMMa.
+    MM     ,M   MM    MM `Mb    MM   MM   ,AP YA.   ,A9 MM    MM    MM  MM   L.   I8
+  .JMMmmmmMMM .JMML  JMML.`Wbmd"MML. MMbmmd'   `Ybmd9'.JMML..JMML  JMML.`MbmoM9mmmP'
+                                     MM
+                                   .JMML.
+   */
 
   ctx.put('/', PUBLIC, (req, res) => {
     const log = getLogger(MODULE, 'GET', '/v3/data/');
@@ -721,7 +755,19 @@ export function dataRoutes(app: Application<AppMeta>) {
 //  Typeguards, Assertions, and normalizers
 //
 
-// Assertions
+/* @@head Asserts
+
+
+      db                                         mm
+     ;MM:                                        MM
+    ,V^MM.    ,pP"Ybd ,pP"Ybd  .gP"Ya `7Mb,od8 mmMMmm ,pP"Ybd
+   ,M  `MM    8I   `" 8I   `" ,M'   Yb  MM' "'   MM   8I   `"
+   AbmmmqMA   `YMMMa. `YMMMa. 8M""""""  MM       MM   `YMMMa.
+  A'     VML  L.   I8 L.   I8 YM.    ,  MM       MM   L.   I8
+.AMA.   .AMMA.M9mmmP' M9mmmP'  `Mbmmd'.JMML.     `MbmoM9mmmP'
+
+
+ */
 
 function assertArticleSearchFilter(
   value: unknown
@@ -760,7 +806,19 @@ function assertSearchOptions(value: unknown): asserts value is SearchOptions {
   }
 }
 
-// Typeguards
+/* @@head Typegrds
+
+                                                                ,,
+MMP""MM""YMM                                                  `7MM
+P'   MM   `7                                                    MM
+     MM `7M'   `MF'`7MMpdMAo.  .gP"Ya   .P"Ybmmm `7Mb,od8  ,M""bMM  ,pP"Ybd
+     MM   VA   ,V    MM   `Wb ,M'   Yb :MI  I8     MM' "',AP    MM  8I   `"
+     MM    VA ,V     MM    M8 8M""""""  WmmmP"     MM    8MI    MM  `YMMMa.
+     MM     VVV      MM   ,AP YM.    , 8M          MM    `Mb    MM  L.   I8
+   .JMML.   ,V       MMbmmd'   `Mbmmd'  YMMMMMb  .JMML.   `Wbmd"MML.M9mmmP'
+           ,V        MM                6'     dP
+        OOb"       .JMML.              Ybmmmd'
+ */
 
 function isArticleSearchFilter(value: unknown): value is ArticleSearchFilter {
   return (
@@ -828,7 +886,19 @@ function isSearchOptions(value: unknown): value is SearchOptions {
   );
 }
 
-// Normalizers
+/* @@head Normzrs
+
+
+`7MN.   `7MF'
+  MMN.    M
+  M YMb   M  ,pW"Wq.`7Mb,od8 `7MMpMMMb.pMMMb.  M"""MMV `7Mb,od8 ,pP"Ybd
+  M  `MN. M 6W'   `Wb MM' "'   MM    MM    MM  '  AMV    MM' "' 8I   `"
+  M   `MM.M 8M     M8 MM       MM    MM    MM    AMV     MM     `YMMMa.
+  M     YMM YA.   ,A9 MM       MM    MM    MM   AMV  ,   MM     L.   I8
+.JML.    YM  `Ybmd9'.JMML.   .JMML  JMML  JMML.AMMmmmM .JMML.   M9mmmP'
+
+
+ */
 
 function normalizeArticleSearchFilter(
   value: unknown
