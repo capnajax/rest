@@ -120,6 +120,6 @@ export function tokenToIntrospectionResult(
     sub: token.userId || undefined,
     iat: Math.floor(token.issuedAt.getTime() / 1000),
     exp: Math.floor(token.expiresAt.getTime() / 1000),
-    ...token.metadata
+    ...token.metadata,
   };
 }

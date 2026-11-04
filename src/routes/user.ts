@@ -34,14 +34,16 @@ async function sessionPatch(req: any, res: any) {
     return;
   }
 
-  if (await sessionManager.patchSession(
-    req.context.session.sessionId,
-    body as Record<string, unknown>
-  )) {
+  if (
+    await sessionManager.patchSession(
+      req.context.session.sessionId,
+      body as Record<string, unknown>
+    )
+  ) {
     // refresh session data from session manager in case it was modified there
-    req.context.session = await sessionManager.getSession(
+    req.context.session = (await sessionManager.getSession(
       req.context.session.sessionId
-    ) as unknown as Session;
+    )) as unknown as Session;
     res.json({
       message: `Session patched`,
       session: req.context.session,
@@ -50,19 +52,19 @@ async function sessionPatch(req: any, res: any) {
 }
 
 export function userRoutes(app: Application<AppMeta>) {
-
   app.get('/user/my-session', SESSION_REQUIRED, sessionGet);
-  app.get('/user/my-session/no-touch',
-    {sessionPolicy: {createAnonymous: true, extendOnRequest: false}},
+  app.get(
+    '/user/my-session/no-touch',
+    { sessionPolicy: { createAnonymous: true, extendOnRequest: false } },
     sessionGet
   );
 
   app.delete('/user/my-session', sessionDelete);
 
   app.patch('/user/my-session', SESSION_REQUIRED, sessionPatch);
-  app.patch('/user/my-session/no-touch',
-    {sessionPolicy: {createAnonymous: true, extendOnRequest: false}},
+  app.patch(
+    '/user/my-session/no-touch',
+    { sessionPolicy: { createAnonymous: true, extendOnRequest: false } },
     sessionPatch
   );
 }
-

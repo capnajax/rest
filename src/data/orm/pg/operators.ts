@@ -1,6 +1,6 @@
-export const BETWEEN = 'BETWEEN'
+export const BETWEEN = 'BETWEEN';
 export const IS_NULL = 'IS NULL';
-export const IS_NOT_NULL= 'IS NOT NULL';
+export const IS_NOT_NULL = 'IS NOT NULL';
 export const LIKE = 'LIKE';
 export const NOT_LIKE = 'NOT LIKE';
 export const ILIKE = 'ILIKE';
@@ -24,7 +24,16 @@ export function testOp(o: unknown, ar: string[]): boolean {
 
 const unaryPGOps = [IS_NULL, IS_NOT_NULL] as const;
 const binaryPGOps = [
-  '=', '<>', '>', '<', '>=', '<=', LIKE, NOT_LIKE, ILIKE, NOT_ILIKE
+  '=',
+  '<>',
+  '>',
+  '<',
+  '>=',
+  '<=',
+  LIKE,
+  NOT_LIKE,
+  ILIKE,
+  NOT_ILIKE,
 ] as const;
 const trinaryPGOps = [BETWEEN] as const;
 const multiaryPGOps = [IN] as const;
@@ -32,7 +41,7 @@ const pgOps = [
   ...unaryPGOps,
   ...binaryPGOps,
   ...trinaryPGOps,
-  ...multiaryPGOps
+  ...multiaryPGOps,
 ] as const;
 
 export type UnaryPGOperator = (typeof unaryPGOps)[number];
@@ -41,11 +50,11 @@ export type TrinaryPGOperator = (typeof trinaryPGOps)[number];
 export type MultiaryPGOperator = (typeof multiaryPGOps)[number];
 export type PGOperator = (typeof pgOps)[number];
 
-export const unaryPGOperators = unaryPGOps.map(t => t as string);
-export const binaryPGOperators = binaryPGOps.map(t => t as string);
-export const trinaryPGOperators = trinaryPGOps.map(t => t as string);
-export const multiaryPGOperators = multiaryPGOps.map(t => t as string);
-export const pgOperators = pgOps.map(t => t as string);
+export const unaryPGOperators = unaryPGOps.map((t) => t as string);
+export const binaryPGOperators = binaryPGOps.map((t) => t as string);
+export const trinaryPGOperators = trinaryPGOps.map((t) => t as string);
+export const multiaryPGOperators = multiaryPGOps.map((t) => t as string);
+export const pgOperators = pgOps.map((t) => t as string);
 
 /**
  * Narrows a value to `IS NULL` or `IS NOT NULL`.

@@ -13,39 +13,41 @@ export interface ParsedArgs {
 const appConfigDefaults: AppConfig = {
   app: {
     global: {
-      baseUrl: 'http://example.com/'
-    }
+      baseUrl: 'http://example.com/',
+    },
   },
   debug: {
-    logging: { level: 'info' }
+    logging: { level: 'info' },
   },
   nodeEnv: 'development',
   port: 1661,
   security: {
-    jwtKeys: []
+    jwtKeys: [],
   },
   sessions: {
     duration: 1000 * 60 * 60 * 24, // 1 day
-  }
+  },
 };
 
 export const parsedArgs = {} as ParsedArgs;
 
-export function isRecordStringUnknown(value: unknown): value is Record<string, unknown> {
+export function isRecordStringUnknown(
+  value: unknown
+): value is Record<string, unknown> {
   return (
     value !== null &&
     typeof value === 'object' &&
     !Array.isArray(value) &&
-    Object.keys(value).every(key => typeof key === 'string')
+    Object.keys(value).every((key) => typeof key === 'string')
   );
 }
 
-function parseConfigFiles(files?:(string|Partial<AppConfig>)[]|Partial<AppConfig>): void {
-
+function parseConfigFiles(
+  files?: (string | Partial<AppConfig>)[] | Partial<AppConfig>
+): void {
   const errors = [];
-  const filesAr = (typeof files === 'object' && !Array.isArray(files))
-    ? [files]
-    : files;
+  const filesAr =
+    typeof files === 'object' && !Array.isArray(files) ? [files] : files;
 
   const parsed: any[] = [];
   if (!filesAr || filesAr.length === 0) {
@@ -64,16 +66,19 @@ function parseConfigFiles(files?:(string|Partial<AppConfig>)[]|Partial<AppConfig
     } else {
       const content = fs.readFileSync(f, 'utf-8');
       try {
-        let configObj = f.endsWith('.yaml') || f.endsWith('.yml') ?
-          YAML.parse(content) :
-          JSON.parse(content);
+        let configObj =
+          f.endsWith('.yaml') || f.endsWith('.yml')
+            ? YAML.parse(content)
+            : JSON.parse(content);
         if (isRecordStringUnknown(configObj)) {
           parsed.push(configObj);
         } else {
           errors.push(`Config file ${f} does not contain a valid object`);
         }
       } catch (err) {
-        errors.push(`Failed to parse config file ${f}: ${(err as Error).message}`);
+        errors.push(
+          `Failed to parse config file ${f}: ${(err as Error).message}`
+        );
         continue;
       }
     }
@@ -95,9 +100,27 @@ function parseConfigFiles(files?:(string|Partial<AppConfig>)[]|Partial<AppConfig
 export function parseArgs(o?: Partial<AppConfig>): ParsedArgs {
   const errors = [];
   const argvDefinitions = [
-    { name: 'configFiles', arg: ['--config', '-c'], env: 'CONFIG_FILES', type: 'list', required: false },
-    { name: 'dbUrl', arg: ['--db-url'], env: 'DATABASE_URL', type: 'string', required: false },
-    { name: 'port', arg: ['--port', '-p'], env: 'PORT', type: 'integer', required: false },
+    {
+      name: 'configFiles',
+      arg: ['--config', '-c'],
+      env: 'CONFIG_FILES',
+      type: 'list',
+      required: false,
+    },
+    {
+      name: 'dbUrl',
+      arg: ['--db-url'],
+      env: 'DATABASE_URL',
+      type: 'string',
+      required: false,
+    },
+    {
+      name: 'port',
+      arg: ['--port', '-p'],
+      env: 'PORT',
+      type: 'integer',
+      required: false,
+    },
   ];
 
   const parser = new Parser(argvDefinitions as any);
@@ -105,7 +128,7 @@ export function parseArgs(o?: Partial<AppConfig>): ParsedArgs {
 
   const argv = deepMerge(parser.argv || {}, o || {});
 
-  const configFiles: (string|object)[]|undefined = argv?.configFiles;
+  const configFiles: (string | object)[] | undefined = argv?.configFiles;
   const dbUrl: string | undefined = argv?.dbUrl;
   const port: number | undefined = argv?.port;
 

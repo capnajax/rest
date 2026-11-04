@@ -1,9 +1,14 @@
 import type { PoolClient } from 'pg';
-import { getConnection, returnConnection, queryWithConnection } from '../query.js';
+import {
+  getConnection,
+  returnConnection,
+  queryWithConnection,
+} from '../query.js';
 import type { ImmutableRow } from './immutable-row.js';
 import type { ImmutableRowStatics } from './types.js';
 
-type ImmutableRowConstructor<T extends ImmutableRow> = (new () => T) & ImmutableRowStatics;
+type ImmutableRowConstructor<T extends ImmutableRow> = (new () => T) &
+  ImmutableRowStatics;
 
 /**
  * Holds all reference-table data loaded at startup.
@@ -31,7 +36,9 @@ export class ReferenceData {
    * Register a public reference-table row class. Hand-maintained row
    * modules call this at module load time; base classes are not registered.
    */
-  static register<T extends ImmutableRow>(ctor: ImmutableRowConstructor<T>): void {
+  static register<T extends ImmutableRow>(
+    ctor: ImmutableRowConstructor<T>
+  ): void {
     ReferenceData._registered.push(ctor);
   }
 
@@ -40,16 +47,18 @@ export class ReferenceData {
    * Call once during application startup, before handling any requests.
    */
   static async initialize(connection?: PoolClient): Promise<void> {
-    const conn    = connection ?? await getConnection();
+    const conn = connection ?? (await getConnection());
     const ownConn = !connection;
 
     try {
       for (const ctor of ReferenceData._registered) {
-        const sql    = `SELECT * FROM "${ctor.tableName}" ORDER BY "${ctor.pkColumn}"`;
+        const sql = `SELECT * FROM "${ctor.tableName}" ORDER BY "${ctor.pkColumn}"`;
         const result = await queryWithConnection(
-          {connection: conn, allowHardcoded: true}, sql, []
+          { connection: conn, allowHardcoded: true },
+          sql,
+          []
         );
-        const rows   = result.rows.map(row => {
+        const rows = result.rows.map((row) => {
           const instance = new ctor();
           return instance._fromRecord(row);
         });
@@ -64,35 +73,48 @@ export class ReferenceData {
    * Return all rows for a reference table.
    * Throws if initialize() has not been called for this class.
    */
-  static all<T extends ImmutableRow>(ctor: ImmutableRowConstructor<T>): readonly T[] {
+  static all<T extends ImmutableRow>(
+    ctor: ImmutableRowConstructor<T>
+  ): readonly T[] {
     return ReferenceData._require(ctor) as T[];
   }
 
   /** Find a reference row by primary key. */
   static byId<T extends ImmutableRow>(
-    ctor:  ImmutableRowConstructor<T>,
-    id:    number,
+    ctor: ImmutableRowConstructor<T>,
+    id: number
   ): T | undefined {
     const pkColumn = ctor.pkColumn;
     return (ReferenceData._require(ctor) as T[]).find(
-      row => (row.getValue(pkColumn)) === id,
+      (row) => row.getValue(pkColumn) === id
     );
   }
 
   /** Resolve a generated single relationship without importing its constructor. */
-  static byTableId(tableName: string, id: unknown, targetColumn?: string): ImmutableRow | undefined {
-    const ctor = ReferenceData._registered.find(candidate => candidate.tableName === tableName);
-    if (!ctor) throw new Error(`No reference row class registered for table '${tableName}'`);
-    return ReferenceData._require(ctor).find(row => row.getValue(targetColumn ?? ctor.pkColumn) === id);
+  static byTableId(
+    tableName: string,
+    id: unknown,
+    targetColumn?: string
+  ): ImmutableRow | undefined {
+    const ctor = ReferenceData._registered.find(
+      (candidate) => candidate.tableName === tableName
+    );
+    if (!ctor)
+      throw new Error(
+        `No reference row class registered for table '${tableName}'`
+      );
+    return ReferenceData._require(ctor).find(
+      (row) => row.getValue(targetColumn ?? ctor.pkColumn) === id
+    );
   }
 
   /** Find a reference row by its name column. */
   static byName<T extends ImmutableRow>(
-    ctor:  ImmutableRowConstructor<T>,
-    name:  string,
+    ctor: ImmutableRowConstructor<T>,
+    name: string
   ): T | undefined {
     return (ReferenceData._require(ctor) as T[]).find(
-      row => (row.getValue('name')) === name,
+      (row) => row.getValue('name') === name
     );
   }
 
@@ -100,8 +122,8 @@ export class ReferenceData {
     const rows = ReferenceData._store.get(ctor);
     if (!rows) {
       throw new Error(
-        `ReferenceData for '${(ctor as any).tableName ?? ctor.name}' is not loaded. `
-        + `Call ReferenceData.initialize() at application startup.`,
+        `ReferenceData for '${(ctor as any).tableName ?? ctor.name}' is not loaded. ` +
+          `Call ReferenceData.initialize() at application startup.`
       );
     }
     return rows;

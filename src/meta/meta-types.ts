@@ -1,36 +1,36 @@
 import { ContextMeta, FrameworkMeta } from 'filamentjs';
 import {
-    AppMeta as RateLimitAppMeta,
-    ContextMeta as RateLimitContextMeta
+  AppMeta as RateLimitAppMeta,
+  ContextMeta as RateLimitContextMeta,
 } from '@filamentjs/rate-limiting';
 import {
-    AppMeta as ReqLoggingAppMeta,
-    ContextMeta as ReqLoggingContextMeta
+  AppMeta as ReqLoggingAppMeta,
+  ContextMeta as ReqLoggingContextMeta,
 } from '@filamentjs/request-logging';
 
 export interface ObjectRoleInfo {
-  article?: string|number;
+  article?: string | number;
   articleAuthority?: 'delegate' | 'admin' | 'edit' | 'read';
 }
-export type RoleInfoCalculator = (roleInfo: ObjectRoleInfo) => string|string[];
+export type RoleInfoCalculator = (
+  roleInfo: ObjectRoleInfo
+) => string | string[];
 
 export interface EndpointMetaRoles {
   // Roles required at the endpoint level
   endpoint: string[];
   // Roles calculated by object properties, e.g. article:123:edit
-  object?: (string|RoleInfoCalculator)[];
+  object?: (string | RoleInfoCalculator)[];
 }
 
 /**
  * Application metadata interface
- * 
+ *
  * Extend this interface to add your own metadata properties.
  * Middleware can inspect req.endpointMeta to make decisions.
  */
-export interface AppMeta extends 
-  FrameworkMeta, RateLimitAppMeta, ReqLoggingAppMeta
-{
-
+export interface AppMeta
+  extends FrameworkMeta, RateLimitAppMeta, ReqLoggingAppMeta {
   analytics: { enabled: boolean };
 
   contentTypes: {
@@ -54,8 +54,8 @@ export interface AppMeta extends
      * case, the defaultType will be used to parse the body. Ignored if the
      * request is not a POST, PUT, or PATCH request.
      */
-    allowMissingContentType: boolean;    
-  }
+    allowMissingContentType: boolean;
+  };
 
   /**
    * Whether this endpoint requires authentication
@@ -76,8 +76,7 @@ export interface AppMeta extends
      * Set to `true` to extend the session expiration on each request.
      */
     extendOnRequest: boolean;
-
-  }|null;
+  } | null;
 
   /**
    * Logging configuration
@@ -92,7 +91,7 @@ export interface AppMeta extends
   tags: string[];
 
   /**
-   * Roles required to access this endpoint. 
+   * Roles required to access this endpoint.
    * If not specified, the endpoint is accessible to all users as long as they
    * requiresAuth is satisfied (i.e., the user is authenticated if requiresAuth
    * is true).
@@ -114,19 +113,18 @@ export interface ContentType {
   isFormUrlEncoded: () => boolean;
   isPlainText: () => boolean;
   isHtml: () => boolean;
-  isImage: () => boolean
+  isImage: () => boolean;
 }
 
-export interface Context extends 
-  ContextMeta, RateLimitContextMeta, ReqLoggingContextMeta
-{
-  body?: () => Promise<unknown>,
-  contentType?: ContentType|null;
+export interface Context
+  extends ContextMeta, RateLimitContextMeta, ReqLoggingContextMeta {
+  body?: () => Promise<unknown>;
+  contentType?: ContentType | null;
   contentTypes: {
-    allowMissingContentType: boolean,
-    defaultType: string,
-    supportedTypes?: string[]
-  },
-  cookies?: Record<string, string>,
-  session?: Record<string, any>|null
+    allowMissingContentType: boolean;
+    defaultType: string;
+    supportedTypes?: string[];
+  };
+  cookies?: Record<string, string>;
+  session?: Record<string, any> | null;
 }

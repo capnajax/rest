@@ -18,12 +18,9 @@ Example:
 
 ```typescript
 // src/routes/users.ts
-app.get('/users', 
-  { requiresAuth: true, rateLimit: 50 },
-  async (req, res) => {
-    res.json({ users: [] });
-  }
-);
+app.get('/users', { requiresAuth: true, rateLimit: 50 }, async (req, res) => {
+  res.json({ users: [] });
+});
 
 // src/middleware/auth.ts
 app.use(async (req, res, next) => {

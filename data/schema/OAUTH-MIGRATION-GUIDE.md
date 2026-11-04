@@ -9,6 +9,7 @@ The `010-oauth-schema.sql` script creates a separate `oauth` schema with tables 
 ## Schema Structure
 
 ### oauth.clients
+
 Represents OAuth applications that can request tokens.
 
 ```sql
@@ -29,6 +30,7 @@ INSERT INTO oauth.clients (
 ```
 
 **Key fields:**
+
 - `realm_id`: Tenant/realm identifier
 - `client_id`: Unique within realm
 - `grant_types`: Array of allowed OAuth grant types
@@ -38,6 +40,7 @@ INSERT INTO oauth.clients (
 - `is_public`: If true, client doesn't authenticate with a secret
 
 ### oauth.client_secrets
+
 One-to-many relationship with clients. Secrets are revokable and can expire.
 
 ```sql
@@ -56,12 +59,14 @@ INSERT INTO oauth.client_secrets (
 ```
 
 **Key fields:**
+
 - `secret_hash`: Hashed secret (never store plaintext)
 - `label`: Human-readable identifier
 - `revoked`: Boolean flag to disable this secret
 - `expires_at`: Optional expiration date
 
 **Usage pattern:**
+
 1. Generate a random secret
 2. Hash it (SHA-256, bcrypt, etc.)
 3. Store the hash
@@ -69,6 +74,7 @@ INSERT INTO oauth.client_secrets (
 5. Client uses secret in token requests
 
 ### oauth.tokens
+
 Stores access tokens, refresh tokens, and authorization codes.
 
 ```sql
@@ -97,18 +103,21 @@ INSERT INTO oauth.tokens (
 ```
 
 **Key fields:**
+
 - `type`: "access", "refresh", or "code"
 - `issued_at`, `expires_at`: Unix timestamps
 - `revoked`: Boolean for token revocation
 - `metadata`: JSON for additional data (e.g., JWT `kid`, custom claims)
 
 **For authorization codes:**
+
 - `code_challenge`: PKCE code challenge
 - `redirect_uri`: Where to redirect after authorization
 - `nonce`: OpenID Connect nonce
 - `redeemed`: Track if code was exchanged for tokens
 
 ### oauth.sessions
+
 Temporary state during OAuth authorization flow.
 
 ```sql
@@ -135,6 +144,7 @@ INSERT INTO oauth.sessions (
 ```
 
 **Key fields:**
+
 - `state`: Unique value to prevent CSRF (use `state` from OAuth request)
 - `status`: "pending" → "authorized" → "exchanged"
 - `expires_at`: Sessions should expire quickly (10-15 min)
@@ -142,6 +152,7 @@ INSERT INTO oauth.sessions (
 ## Integration Notes
 
 ### TokenStore Implementation
+
 The `MemoryTokenStore` can be replaced with a `PostgresTokenStore`:
 
 ```typescript
@@ -160,7 +171,7 @@ export class PostgresTokenStore implements TokenStore {
         token.scopes.join(' '),
         Math.floor(token.issuedAt.getTime() / 1000),
         Math.floor(token.expiresAt.getTime() / 1000),
-        JSON.stringify(token.metadata)
+        JSON.stringify(token.metadata),
       ]
     );
   }
@@ -181,7 +192,7 @@ export class PostgresTokenStore implements TokenStore {
       issuedAt: new Date(row.issued_at * 1000),
       expiresAt: new Date(row.expires_at * 1000),
       scopes: row.scopes ? row.scopes.split(' ') : [],
-      metadata: row.metadata
+      metadata: row.metadata,
     };
   }
 
@@ -198,6 +209,7 @@ export class PostgresTokenStore implements TokenStore {
 ```
 
 ### Client Validation
+
 Looking up a client with active secrets:
 
 ```sql
@@ -215,17 +227,20 @@ LIMIT 1;
 ### Authorization Code Flow
 
 1. **Create session** (authorization request)
+
    ```sql
    INSERT INTO oauth.sessions (...) VALUES (...);
    ```
 
 2. **Create code** (after user authenticates)
+
    ```sql
    INSERT INTO oauth.tokens (type='code', ...) VALUES (...);
    UPDATE oauth.sessions SET user_id=$1, status='authorized', code_id=$2 WHERE id=$3;
    ```
 
 3. **Exchange code for tokens** (token endpoint)
+
    ```sql
    SELECT * FROM oauth.tokens WHERE value=$1 AND type='code' AND NOT redeemed;
    UPDATE oauth.tokens SET redeemed=true, redeemed_at=NOW() WHERE id=$1;
@@ -234,6 +249,7 @@ LIMIT 1;
    ```
 
 ### Cleanup
+
 Schedule periodic cleanup of expired tokens/sessions:
 
 ```sql

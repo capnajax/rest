@@ -11,7 +11,7 @@ import { dataRoutes } from './data.js';
 import { oauthRoutes } from './oauth.js';
 import { userRoutes } from './user.js';
 
-const MODULE= 'routes';
+const MODULE = 'routes';
 
 /**
  * Register all routes
@@ -24,7 +24,7 @@ export function registerRoutes(app: Application<AppMeta, Context>) {
     const log = getLogger(MODULE, 'GET', '/health');
     res.json({
       status: isReady() ? 'healthy' : 'not-ready',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   });
 

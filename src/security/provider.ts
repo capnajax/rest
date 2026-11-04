@@ -11,7 +11,7 @@ import type {
   OAuthClient,
   TokenIntrospectionResult,
   AuthorizationRequest,
-  TokenRequest
+  TokenRequest,
 } from './types.js';
 
 /**
@@ -103,7 +103,11 @@ export interface OAuthProvider {
     clientSecret: string | undefined,
     redirectUri: string,
     codeVerifier?: string
-  ): Promise<{ access_token: string; refresh_token?: string; expires_in: number }>;
+  ): Promise<{
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
+  }>;
 
   /**
    * Refresh an access token using a refresh token.
@@ -125,7 +129,12 @@ export interface OAuthProvider {
    */
   getUserInfo(
     token: string
-  ): Promise<{ sub: string; username?: string; email?: string; [key: string]: unknown } | null>;
+  ): Promise<{
+    sub: string;
+    username?: string;
+    email?: string;
+    [key: string]: unknown;
+  } | null>;
 
   /**
    * Validate an OAuth client.

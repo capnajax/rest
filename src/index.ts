@@ -1,13 +1,10 @@
-
 import { Application, createApp } from 'filamentjs';
 import {
   createStandaloneStore as createRateLimitStore,
   SetupOptions as RateLimitSetupOptions,
-  setup as setupRateLimit
+  setup as setupRateLimit,
 } from '@filamentjs/rate-limiting';
-import {
-  setup as setupRequestLogging
-} from '@filamentjs/request-logging';
+import { setup as setupRequestLogging } from '@filamentjs/request-logging';
 
 import { defaultMeta } from './meta/defaults.js';
 import { AppConfig, appConfig, appConfigAsync } from './config/app.js';
@@ -24,10 +21,9 @@ import './data/generated/index.js';
 import { ReferenceData } from './data/orm/reference-data.js';
 
 export async function start(
-  o?:Partial<AppConfig>,
+  o?: Partial<AppConfig>,
   portCallback?: (port: number) => void
 ): Promise<Application<AppMeta>> {
-
   // Parse CLI args / envs for overrides like --config and --port
   parseArgs(o);
 
@@ -55,24 +51,23 @@ export async function start(
   //  Register filament policies
   //
 
-  const rateLimitOptions:RateLimitSetupOptions  = await
-    (async () => {
-      let config = (await appConfigAsync()).policies?.rateLimiting;
+  const rateLimitOptions: RateLimitSetupOptions = await (async () => {
+    let config = (await appConfigAsync()).policies?.rateLimiting;
 
-      if (!config) {
-        throw new Error('Rate limiting config not defined');
-      }
+    if (!config) {
+      throw new Error('Rate limiting config not defined');
+    }
 
-      return {
-        defaultPlan: config.defaultPlan,
-        plans: config.plans,
-        resolveSubject: () => '_web',
-        store: createRateLimitStore(config.store || { maxEntries: 100_000})
-      };
-    })();
+    return {
+      defaultPlan: config.defaultPlan,
+      plans: config.plans,
+      resolveSubject: () => '_web',
+      store: createRateLimitStore(config.store || { maxEntries: 100_000 }),
+    };
+  })();
 
   setupRateLimit(app, rateLimitOptions);
-  setupRequestLogging(app); 
+  setupRequestLogging(app);
 
   // Register middleware
   registerMiddleware(app);
@@ -102,7 +97,9 @@ export async function start(
   const actualPort = await app.listen(appConfig().port);
   console.log(`🔥 Filament server running on http://localhost:${actualPort}`);
   console.log(`   Environment: ${appConfig().nodeEnv}`);
-  console.log(`   Log level: \n${JSON.stringify(appConfig().debug.logging, null, 2).replace(/^/gm, '     ')}`);
+  console.log(
+    `   Log level: \n${JSON.stringify(appConfig().debug.logging, null, 2).replace(/^/gm, '     ')}`
+  );
   if (portCallback) {
     portCallback(actualPort);
   }

@@ -30,9 +30,9 @@ suite('OAuth Endpoints', () => {
     return fetch(`${baseUrl()}/v3/oauth/token`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
   };
 
@@ -43,9 +43,9 @@ suite('OAuth Endpoints', () => {
     return fetch(`${baseUrl()}/v3/oauth/revoke`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ token })
+      body: JSON.stringify({ token }),
     });
   };
 
@@ -56,9 +56,9 @@ suite('OAuth Endpoints', () => {
     return fetch(`${baseUrl()}/v3/oauth/introspect`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ token })
+      body: JSON.stringify({ token }),
     });
   };
 
@@ -69,8 +69,8 @@ suite('OAuth Endpoints', () => {
     return fetch(`${baseUrl()}/v3/oauth/userinfo`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
   };
 
@@ -82,7 +82,7 @@ suite('OAuth Endpoints', () => {
       params as Record<string, string>
     ).toString();
     return fetch(`${baseUrl()}/v3/oauth/authorize?${query}`, {
-      method: 'GET'
+      method: 'GET',
     });
   };
 
@@ -91,7 +91,7 @@ suite('OAuth Endpoints', () => {
    */
   const jwksRequest = async () => {
     return fetch(`${baseUrl()}/v3/oauth/jwks`, {
-      method: 'GET'
+      method: 'GET',
     });
   };
 
@@ -99,10 +99,9 @@ suite('OAuth Endpoints', () => {
    * Get OIDC discovery metadata.
    */
   const oidcDiscoveryRequest = async () => {
-    return fetch(
-      `${baseUrl()}/v3/oauth/.well-known/openid-configuration`,
-      { method: 'GET' }
-    );
+    return fetch(`${baseUrl()}/v3/oauth/.well-known/openid-configuration`, {
+      method: 'GET',
+    });
   };
 
   // ── Token Endpoint Tests ──────────────────────────────────────────────────
@@ -112,21 +111,19 @@ suite('OAuth Endpoints', () => {
       'Should reject token request without grant_type',
       async (battery) => {
         const response = await tokenRequest({
-          client_id: 'test-client'
+          client_id: 'test-client',
         });
 
         battery
           .test('Returns 400 Bad Request')
           .value(response.status)
-          .value(400)
-          .equal;
+          .value(400).equal;
 
         const body = (await response.json()) as Record<string, unknown>;
         battery
           .test('Returns error_invalid_request')
           .value(body.error)
-          .value('invalid_request')
-          .equal;
+          .value('invalid_request').equal;
       }
     );
 
@@ -137,7 +134,7 @@ suite('OAuth Endpoints', () => {
           grant_type: 'authorization_code',
           code: 'test_code',
           client_id: 'test-client',
-          redirect_uri: 'http://localhost:3000/callback'
+          redirect_uri: 'http://localhost:3000/callback',
         });
 
         // TODO: Implement code exchange
@@ -148,66 +145,56 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Returns 200 OK or implements endpoint')
           .value(response.status < 500)
-          .value(true)
-          .equal;
+          .value(true).equal;
 
         if (response.status === 200) {
           battery
             .test('Response has access_token')
             .value(typeof body.access_token)
-            .value('string')
-            .equal;
+            .value('string').equal;
 
           battery
             .test('Response has expires_in')
             .value(typeof body.expires_in)
-            .value('number')
-            .equal;
+            .value('number').equal;
 
           battery
             .test('Response token_type is Bearer')
             .value(body.token_type)
-            .value('Bearer')
-            .equal;
+            .value('Bearer').equal;
         }
       }
     );
 
-    TestBattery.test(
-      'Should handle refresh_token grant',
-      async (battery) => {
-        const response = await tokenRequest({
-          grant_type: 'refresh_token',
-          refresh_token: 'test_refresh_token',
-          client_id: 'test-client'
-        });
+    TestBattery.test('Should handle refresh_token grant', async (battery) => {
+      const response = await tokenRequest({
+        grant_type: 'refresh_token',
+        refresh_token: 'test_refresh_token',
+        client_id: 'test-client',
+      });
 
-        // TODO: Implement refresh token exchange
-        // Should verify refresh token is valid
-        // Should return new access_token
-        const body = (await response.json()) as Record<string, unknown>;
+      // TODO: Implement refresh token exchange
+      // Should verify refresh token is valid
+      // Should return new access_token
+      const body = (await response.json()) as Record<string, unknown>;
+
+      battery
+        .test('Response status is valid')
+        .value(response.status < 500)
+        .value(true).equal;
+
+      if (response.status === 200) {
+        battery
+          .test('Response has access_token')
+          .value(typeof body.access_token)
+          .value('string').equal;
 
         battery
-          .test('Response status is valid')
-          .value(response.status < 500)
-          .value(true)
-          .equal;
-
-        if (response.status === 200) {
-          battery
-            .test('Response has access_token')
-            .value(typeof body.access_token)
-            .value('string')
-            .equal;
-
-          battery
-            .test('Response has expires_in')
-            .value(typeof body.expires_in)
-            .value('number')
-            .equal;
-        }
+          .test('Response has expires_in')
+          .value(typeof body.expires_in)
+          .value('number').equal;
       }
-    );
+    });
 
     TestBattery.test(
       'Should handle client_credentials grant',
@@ -215,7 +202,7 @@ suite('OAuth Endpoints', () => {
         const response = await tokenRequest({
           grant_type: 'client_credentials',
           client_id: 'test-client',
-          client_secret: 'test-secret'
+          client_secret: 'test-secret',
         });
 
         // TODO: Implement client credentials flow
@@ -226,15 +213,13 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Response status is valid')
           .value(response.status < 500)
-          .value(true)
-          .equal;
+          .value(true).equal;
 
         if (response.status === 200) {
           battery
             .test('Response has access_token')
             .value(typeof body.access_token)
-            .value('string')
-            .equal;
+            .value('string').equal;
         }
       }
     );
@@ -243,63 +228,42 @@ suite('OAuth Endpoints', () => {
   // ── Revoke Endpoint Tests ─────────────────────────────────────────────────
 
   suite('POST /v3/oauth/revoke', () => {
-    TestBattery.test(
-      'Should reject revoke without token',
-      async (battery) => {
-        const response = await fetch(`${baseUrl()}/v3/oauth/revoke`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        });
+    TestBattery.test('Should reject revoke without token', async (battery) => {
+      const response = await fetch(`${baseUrl()}/v3/oauth/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
 
-        battery
-          .test('Returns 400 Bad Request')
-          .value(response.status)
-          .value(400)
-          .equal;
+      battery.test('Returns 400 Bad Request').value(response.status).value(400)
+        .equal;
 
-        const body = (await response.json()) as Record<string, unknown>;
-        battery
-          .test('Returns error_invalid_request')
-          .value(body.error)
-          .value('invalid_request')
-          .equal;
-      }
-    );
+      const body = (await response.json()) as Record<string, unknown>;
+      battery
+        .test('Returns error_invalid_request')
+        .value(body.error)
+        .value('invalid_request').equal;
+    });
 
-    TestBattery.test(
-      'Should revoke a valid token',
-      async (battery) => {
-        const response = await revokeRequest('test_access_token');
+    TestBattery.test('Should revoke a valid token', async (battery) => {
+      const response = await revokeRequest('test_access_token');
 
-        // TODO: Implement token revocation
-        // Should mark token as revoked in store
-        // Should return 200 OK
+      // TODO: Implement token revocation
+      // Should mark token as revoked in store
+      // Should return 200 OK
 
-        battery
-          .test('Returns 200 OK')
-          .value(response.status)
-          .value(200)
-          .equal;
-      }
-    );
+      battery.test('Returns 200 OK').value(response.status).value(200).equal;
+    });
 
-    TestBattery.test(
-      'Should revoke a refresh token',
-      async (battery) => {
-        const response = await revokeRequest('test_refresh_token');
+    TestBattery.test('Should revoke a refresh token', async (battery) => {
+      const response = await revokeRequest('test_refresh_token');
 
-        // TODO: Implement refresh token revocation
-        // Should support token_type_hint parameter
-        // Should mark refresh token as revoked
+      // TODO: Implement refresh token revocation
+      // Should support token_type_hint parameter
+      // Should mark refresh token as revoked
 
-        battery
-          .test('Returns 200 OK')
-          .value(response.status)
-          .value(200)
-          .equal;
-      }
-    );
+      battery.test('Returns 200 OK').value(response.status).value(200).equal;
+    });
   });
 
   // ── Introspect Endpoint Tests ─────────────────────────────────────────────
@@ -311,62 +275,48 @@ suite('OAuth Endpoints', () => {
         const response = await fetch(`${baseUrl()}/v3/oauth/introspect`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
+          body: JSON.stringify({}),
         });
 
         battery
           .test('Returns 400 Bad Request')
           .value(response.status)
-          .value(400)
-          .equal;
+          .value(400).equal;
       }
     );
 
-    TestBattery.test(
-      'Should introspect a valid token',
-      async (battery) => {
-        const response = await introspectRequest('valid_token');
+    TestBattery.test('Should introspect a valid token', async (battery) => {
+      const response = await introspectRequest('valid_token');
 
-        // TODO: Implement token introspection
-        // Should verify JWT signature
-        // Should check if token is revoked
-        // Should return token metadata
+      // TODO: Implement token introspection
+      // Should verify JWT signature
+      // Should check if token is revoked
+      // Should return token metadata
+
+      battery.test('Returns 200 OK').value(response.status).value(200).equal;
+
+      const body = (await response.json()) as Record<string, unknown>;
+
+      battery
+        .test('Response has active field')
+        .value(typeof body.active)
+        .value('boolean').equal;
+
+      if (body.active === true) {
+        battery.test('Active token has token_type').value(body.token_type).not
+          .nil;
 
         battery
-          .test('Returns 200 OK')
-          .value(response.status)
-          .value(200)
-          .equal;
-
-        const body = (await response.json()) as Record<string, unknown>;
+          .test('Active token has scope')
+          .value(typeof body.scope)
+          .value('string').equal;
 
         battery
-          .test('Response has active field')
-          .value(typeof body.active)
-          .value('boolean')
-          .equal;
-
-        if (body.active === true) {
-          battery
-            .test('Active token has token_type')
-            .value(body.token_type)
-            .not
-            .nil;
-
-          battery
-            .test('Active token has scope')
-            .value(typeof body.scope)
-            .value('string')
-            .equal;
-
-          battery
-            .test('Active token has exp')
-            .value(typeof body.exp)
-            .value('number')
-            .equal;
-        }
+          .test('Active token has exp')
+          .value(typeof body.exp)
+          .value('number').equal;
       }
-    );
+    });
 
     TestBattery.test(
       'Should return inactive for invalid token',
@@ -378,8 +328,7 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Response indicates inactive')
           .value(body.active)
-          .value(false)
-          .equal;
+          .value(false).equal;
       }
     );
 
@@ -399,8 +348,7 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Revoked token shows as inactive')
           .value(body.active)
-          .value(false)
-          .equal;
+          .value(false).equal;
       }
     );
   });
@@ -412,21 +360,19 @@ suite('OAuth Endpoints', () => {
       'Should reject userinfo without Authorization header',
       async (battery) => {
         const response = await fetch(`${baseUrl()}/v3/oauth/userinfo`, {
-          method: 'GET'
+          method: 'GET',
         });
 
         battery
           .test('Returns 401 Unauthorized')
           .value(response.status)
-          .value(401)
-          .equal;
+          .value(401).equal;
 
         const body = (await response.json()) as Record<string, unknown>;
         battery
           .test('Returns error_invalid_request')
           .value(body.error)
-          .value('invalid_request')
-          .equal;
+          .value('invalid_request').equal;
       }
     );
 
@@ -438,8 +384,7 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Returns 401 Unauthorized')
           .value(response.status)
-          .value(401)
-          .equal;
+          .value(401).equal;
       }
     );
 
@@ -456,8 +401,7 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Returns 200 OK or implements endpoint')
           .value(response.status < 500)
-          .value(true)
-          .equal;
+          .value(true).equal;
 
         if (response.status === 200) {
           const body = (await response.json()) as Record<string, unknown>;
@@ -465,14 +409,12 @@ suite('OAuth Endpoints', () => {
           battery
             .test('Response has sub claim')
             .value(typeof body.sub)
-            .value('string')
-            .equal;
+            .value('string').equal;
 
           battery
             .test('Response is JSON object')
             .value(typeof body)
-            .value('object')
-            .equal;
+            .value('object').equal;
         }
       }
     );
@@ -489,15 +431,13 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Returns 400 Bad Request')
           .value(response.status)
-          .value(400)
-          .equal;
+          .value(400).equal;
 
         const body = (await response.json()) as Record<string, unknown>;
         battery
           .test('Returns error_invalid_request')
           .value(body.error)
-          .value('invalid_request')
-          .equal;
+          .value('invalid_request').equal;
       }
     );
 
@@ -507,14 +447,13 @@ suite('OAuth Endpoints', () => {
         const response = await authorizeRequest({
           client_id: 'test-client',
           redirect_uri: 'http://localhost:3000/callback',
-          response_type: 'token'
+          response_type: 'token',
         });
 
         battery
           .test('Returns 400 Bad Request')
           .value(response.status)
-          .value(400)
-          .equal;
+          .value(400).equal;
       }
     );
 
@@ -525,7 +464,7 @@ suite('OAuth Endpoints', () => {
           client_id: 'test-client',
           redirect_uri: 'http://localhost:3000/callback',
           response_type: 'code',
-          state: 'test_state'
+          state: 'test_state',
         });
 
         // TODO: Implement authorization endpoint
@@ -537,29 +476,22 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Response status is valid')
           .value(response.status < 500)
-          .value(true)
-          .equal;
+          .value(true).equal;
 
         if (response.status === 302 || response.status === 303) {
           const location = response.headers.get('location');
-          battery
-            .test('Redirect location is set')
-            .value(location)
-            .not
-            .nil;
+          battery.test('Redirect location is set').value(location).not.nil;
 
           if (location) {
             battery
               .test('Redirect contains code parameter')
               .value(location.includes('code='))
-              .value(true)
-              .equal;
+              .value(true).equal;
 
             battery
               .test('Redirect contains state parameter')
               .value(location.includes('state=test_state'))
-              .value(true)
-              .equal;
+              .value(true).equal;
           }
         }
       }
@@ -573,7 +505,7 @@ suite('OAuth Endpoints', () => {
           redirect_uri: 'http://localhost:3000/callback',
           response_type: 'code',
           code_challenge: 'test_code_challenge',
-          code_challenge_method: 'S256'
+          code_challenge_method: 'S256',
         });
 
         // TODO: Implement PKCE support
@@ -583,32 +515,27 @@ suite('OAuth Endpoints', () => {
         battery
           .test('PKCE response status is valid')
           .value(response.status < 500)
-          .value(true)
-          .equal;
+          .value(true).equal;
       }
     );
 
-    TestBattery.test(
-      'Should support OpenID Connect nonce',
-      async (battery) => {
-        const response = await authorizeRequest({
-          client_id: 'test-client',
-          redirect_uri: 'http://localhost:3000/callback',
-          response_type: 'code',
-          nonce: 'test_nonce'
-        });
+    TestBattery.test('Should support OpenID Connect nonce', async (battery) => {
+      const response = await authorizeRequest({
+        client_id: 'test-client',
+        redirect_uri: 'http://localhost:3000/callback',
+        response_type: 'code',
+        nonce: 'test_nonce',
+      });
 
-        // TODO: Implement nonce support
-        // Should store nonce with authorization code
-        // Should include nonce in token response
+      // TODO: Implement nonce support
+      // Should store nonce with authorization code
+      // Should include nonce in token response
 
-        battery
-          .test('Nonce response status is valid')
-          .value(response.status < 500)
-          .value(true)
-          .equal;
-      }
-    );
+      battery
+        .test('Nonce response status is valid')
+        .value(response.status < 500)
+        .value(true).equal;
+    });
   });
 
   // ── JWKS Endpoint Tests ───────────────────────────────────────────────────
@@ -619,25 +546,19 @@ suite('OAuth Endpoints', () => {
       async (battery) => {
         const response = await jwksRequest();
 
-        battery
-          .test('Returns 200 OK')
-          .value(response.status)
-          .value(200)
-          .equal;
+        battery.test('Returns 200 OK').value(response.status).value(200).equal;
 
         battery
           .test('Returns application/json')
           .value(response.headers.get('content-type'))
-          .value('application/json')
-          .equal;
+          .value('application/json').equal;
 
         const body = (await response.json()) as Record<string, unknown>;
 
         battery
           .test('Response has keys array')
           .value(Array.isArray(body.keys))
-          .value(true)
-          .equal;
+          .value(true).equal;
 
         // TODO: Implement JWKS endpoint
         // Should return public key in JWKS format
@@ -649,13 +570,9 @@ suite('OAuth Endpoints', () => {
           battery
             .test('Key has kty (key type)')
             .value(typeof firstKey.kty)
-            .value('string')
-            .equal;
+            .value('string').equal;
 
-          battery
-            .test('Key has use property')
-            .value(firstKey.use)
-            .value('sig')
+          battery.test('Key has use property').value(firstKey.use).value('sig')
             .equal;
         }
       }
@@ -670,17 +587,12 @@ suite('OAuth Endpoints', () => {
       async (battery) => {
         const response = await oidcDiscoveryRequest();
 
-        battery
-          .test('Returns 200 OK')
-          .value(response.status)
-          .value(200)
-          .equal;
+        battery.test('Returns 200 OK').value(response.status).value(200).equal;
 
         battery
           .test('Returns application/json')
           .value(response.headers.get('content-type'))
-          .value('application/json')
-          .equal;
+          .value('application/json').equal;
 
         const body = (await response.json()) as Record<string, unknown>;
 
@@ -689,50 +601,42 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Has issuer')
           .value(typeof body.issuer)
-          .value('string')
-          .equal;
+          .value('string').equal;
 
         battery
           .test('Has authorization_endpoint')
           .value(typeof body.authorization_endpoint)
-          .value('string')
-          .equal;
+          .value('string').equal;
 
         battery
           .test('Has token_endpoint')
           .value(typeof body.token_endpoint)
-          .value('string')
-          .equal;
+          .value('string').equal;
 
         battery
           .test('Has userinfo_endpoint')
           .value(typeof body.userinfo_endpoint)
-          .value('string')
-          .equal;
+          .value('string').equal;
 
         battery
           .test('Has jwks_uri')
           .value(typeof body.jwks_uri)
-          .value('string')
-          .equal;
+          .value('string').equal;
 
         battery
           .test('Has scopes_supported array')
           .value(Array.isArray(body.scopes_supported))
-          .value(true)
-          .equal;
+          .value(true).equal;
 
         battery
           .test('Has response_types_supported array')
           .value(Array.isArray(body.response_types_supported))
-          .value(true)
-          .equal;
+          .value(true).equal;
 
         battery
           .test('Has grant_types_supported array')
           .value(Array.isArray(body.grant_types_supported))
-          .value(true)
-          .equal;
+          .value(true).equal;
       }
     );
 
@@ -747,38 +651,31 @@ suite('OAuth Endpoints', () => {
         battery
           .test('Has revocation_endpoint')
           .value(typeof body.revocation_endpoint)
-          .value('string')
-          .equal;
+          .value('string').equal;
 
         battery
           .test('Has introspection_endpoint')
           .value(typeof body.introspection_endpoint)
-          .value('string')
-          .equal;
+          .value('string').equal;
       }
     );
 
-    TestBattery.test(
-      'Should indicate PKCE support',
-      async (battery) => {
-        const response = await oidcDiscoveryRequest();
+    TestBattery.test('Should indicate PKCE support', async (battery) => {
+      const response = await oidcDiscoveryRequest();
 
-        const body = (await response.json()) as Record<string, unknown>;
+      const body = (await response.json()) as Record<string, unknown>;
 
-        // TODO: Document PKCE support in discovery
-        battery
-          .test('Has code_challenge_methods_supported')
-          .value(Array.isArray(body.code_challenge_methods_supported))
-          .value(true)
-          .equal;
+      // TODO: Document PKCE support in discovery
+      battery
+        .test('Has code_challenge_methods_supported')
+        .value(Array.isArray(body.code_challenge_methods_supported))
+        .value(true).equal;
 
-        const methods = body.code_challenge_methods_supported as string[];
-        battery
-          .test('Supports S256 PKCE method')
-          .value(methods.includes('S256'))
-          .value(true)
-          .equal;
-      }
-    );
+      const methods = body.code_challenge_methods_supported as string[];
+      battery
+        .test('Supports S256 PKCE method')
+        .value(methods.includes('S256'))
+        .value(true).equal;
+    });
   });
 });

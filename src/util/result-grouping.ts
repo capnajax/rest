@@ -1,5 +1,5 @@
-import { ImmutableRow } from "../data/orm/immutable-row.js";
-import { MutableRow } from "../data/orm/mutable-row.js";
+import { ImmutableRow } from '../data/orm/immutable-row.js';
+import { MutableRow } from '../data/orm/mutable-row.js';
 
 export interface ResultGroupOptions {
   /**
@@ -7,7 +7,7 @@ export interface ResultGroupOptions {
    *  which means no maximum, just send when the group delay has been reached,
    *  or, if no group delay, send all the articles when loaded.
    */
-  maxGroupSize: number,
+  maxGroupSize: number;
   /**
    *  The maximum amount to time in milliseconds to delay an article before
    *  sending it in a group. The default value is `10`. That is, an article
@@ -16,7 +16,7 @@ export interface ResultGroupOptions {
    *  before sending anything. Ignored if `maxGroupSize` is set to `1` as all
    *  articles are sent immediately anyway.
    */
-  maxGroupingDelayTime: number
+  maxGroupingDelayTime: number;
 }
 
 export function normalizeResultGroupOptions(
@@ -24,19 +24,16 @@ export function normalizeResultGroupOptions(
 ): ResultGroupOptions {
   return {
     maxGroupSize: options.maxGroupSize || 0,
-    maxGroupingDelayTime: (
-      options.maxGroupSize === 1
-        ? 0
-        : options.maxGroupingDelayTime || 10
-    )
+    maxGroupingDelayTime:
+      options.maxGroupSize === 1 ? 0 : options.maxGroupingDelayTime || 10,
   };
-};
+}
 
 export class ResultGrouper<T extends MutableRow> {
-  private groupStart: NodeJS.Timeout|null = null;
+  private groupStart: NodeJS.Timeout | null = null;
   private cb: (rows: T[]) => void;
-  private maxGroupSize: number|undefined;
-  private maxGroupingDelayTime: number|undefined;
+  private maxGroupSize: number | undefined;
+  private maxGroupingDelayTime: number | undefined;
   private queue: T[] = [];
 
   constructor(options: ResultGroupOptions, cb: (rows: T[]) => void) {

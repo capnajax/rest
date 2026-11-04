@@ -1,5 +1,10 @@
 import type { PoolClient } from 'pg';
-import { getConnection, returnConnection, queryWithConnection, QueryOptions } from '../query.js';
+import {
+  getConnection,
+  returnConnection,
+  queryWithConnection,
+  QueryOptions,
+} from '../query.js';
 import { ReferenceData } from './reference-data.js';
 import type { ImmutableRow } from './immutable-row.js';
 import { Column } from './column.js';
@@ -28,7 +33,10 @@ export abstract class MutableRow {
   /** Relationship arrays indexed by relationship name — set by _loadRelationship(). */
   protected readonly _relationships = new Map<string, RelationshipArray<any>>();
 
-  private readonly _singleRelationships = new Map<string, { foreignKey: unknown; row: MutableRow | null }>();
+  private readonly _singleRelationships = new Map<
+    string,
+    { foreignKey: unknown; row: MutableRow | null }
+  >();
 
   constructor() {}
 
@@ -90,7 +98,7 @@ export abstract class MutableRow {
     for (const rel of statics.relationshipDefs ?? []) {
       if (rel.kind !== 'single') continue;
       const row = this._getSingleRelationship(rel.name);
-      if (row !== undefined) {        
+      if (row !== undefined) {
         result[rel.name] = row === null ? null : row.toJSON();
       }
     }
@@ -158,26 +166,25 @@ export abstract class MutableRow {
    * @internal
    */
   protected async _load(
-    columns:       readonly string[],
+    columns: readonly string[],
     relationships: RelationshipDef[],
-    where:         Record<string, unknown>,
-    connection?:   PoolClient,
+    where: Record<string, unknown>,
+    connection?: PoolClient
   ): Promise<boolean> {
     const statics = this.constructor as unknown as MutableRowStatics;
     const tableName = statics.tableName;
 
-    const keys   = Object.keys(where);
+    const keys = Object.keys(where);
     const values = Object.values(where);
-    const whereClause = keys
-      .map((k, i) => `${k} = $${i + 1}`)
-      .join(' AND ');
+    const whereClause = keys.map((k, i) => `${k} = $${i + 1}`).join(' AND ');
 
-    const sql = `SELECT ${columns.map(c => `${c}`).join(', ')} `
-      + `FROM ${tableName} WHERE ${whereClause} LIMIT 1`;    
+    const sql =
+      `SELECT ${columns.map((c) => `${c}`).join(', ')} ` +
+      `FROM ${tableName} WHERE ${whereClause} LIMIT 1`;
 
     const conn: QueryOptions = {
-      connection: connection ?? await getConnection(),
-      allowHardcoded: true
+      connection: connection ?? (await getConnection()),
+      allowHardcoded: true,
     };
     const ownConn = !connection;
 
@@ -202,61 +209,86 @@ export abstract class MutableRow {
   /** Load one configured relationship using the current scalar key values. */
   async loadRelationship(name: string, connection?: PoolClient): Promise<void> {
     const statics = this.constructor as unknown as MutableRowStatics;
-    const rel = statics.relationshipDefs.find(candidate => candidate.name === name);
+    const rel = statics.relationshipDefs.find(
+      (candidate) => candidate.name === name
+    );
     if (!rel) throw new Error(`Unknown relationship '${name}'`);
     if (rel.kind === 'single') {
       const value = this._foreignKeyValue(rel);
-      if (value === undefined) throw new Error(`Foreign key '${rel.foreignKey}' is not loaded`);
+      if (value === undefined)
+        throw new Error(`Foreign key '${rel.foreignKey}' is not loaded`);
       if (rel.isReference || value === null) {
         this._getSingleRelationship(name);
         return;
       }
     }
-    const conn = connection ?? await getConnection();
+    const conn = connection ?? (await getConnection());
     try {
-      await this._loadRelationship(rel, rel.kind === 'single' ? undefined : this._pkValue(statics), conn);
+      await this._loadRelationship(
+        rel,
+        rel.kind === 'single' ? undefined : this._pkValue(statics),
+        conn
+      );
     } finally {
       if (!connection) returnConnection(conn);
     }
   }
 
-  private _foreignKeyValue(rel: Extract<RelationshipDef, { kind: 'single' }>): unknown {
+  private _foreignKeyValue(
+    rel: Extract<RelationshipDef, { kind: 'single' }>
+  ): unknown {
     const column = this._columnMap.get(rel.foreignKey);
-    if (!column) throw new Error(`Foreign key column '${rel.foreignKey}' not registered`);
+    if (!column)
+      throw new Error(`Foreign key column '${rel.foreignKey}' not registered`);
     return column.toJSON();
   }
 
   /** Synchronous access: reference snapshot, loaded dynamic row, null, or unloaded. */
-  protected _getSingleRelationship(name: string): MutableRow | ImmutableRow | null | undefined {
+  protected _getSingleRelationship(
+    name: string
+  ): MutableRow | ImmutableRow | null | undefined {
     const statics = this.constructor as unknown as MutableRowStatics;
-    const rel = statics.relationshipDefs.find(candidate => candidate.name === name);
-    if (!rel || rel.kind !== 'single') throw new Error(`Unknown single relationship '${name}'`);
+    const rel = statics.relationshipDefs.find(
+      (candidate) => candidate.name === name
+    );
+    if (!rel || rel.kind !== 'single')
+      throw new Error(`Unknown single relationship '${name}'`);
     const value = this._foreignKeyValue(rel);
     if (value === undefined || value === null) return value;
-    if (rel.isReference) return ReferenceData.byTableId(rel.targetTable, value, rel.targetColumn) ?? null;
+    if (rel.isReference)
+      return (
+        ReferenceData.byTableId(rel.targetTable, value, rel.targetColumn) ??
+        null
+      );
     const loaded = this._singleRelationships.get(name);
     return loaded?.foreignKey === value ? loaded.row : undefined;
   }
 
   private async _loadRelationship(
-    rel:       RelationshipDef,
-    pkValue:   unknown,
-    conn:      PoolClient,
+    rel: RelationshipDef,
+    pkValue: unknown,
+    conn: PoolClient
   ): Promise<void> {
     if (rel.kind === 'single') {
       const value = this._foreignKeyValue(rel);
-      if (value === undefined) throw new Error(`Foreign key '${rel.foreignKey}' is not loaded`);
+      if (value === undefined)
+        throw new Error(`Foreign key '${rel.foreignKey}' is not loaded`);
       if (rel.isReference || value === null) {
         this._getSingleRelationship(rel.name);
         return;
       }
       const RelatedClass = getRowClass(rel.targetTable);
       const target = RelatedClass as unknown as MutableRowStatics;
-      const columns = [...new Set([target.pkColumn, ...target.columnSets.simple])];
-      const sql = `SELECT ${columns.map(column => `"${column}"`).join(', ')} `
-        + `FROM "${rel.targetTable}" WHERE "${target.pkColumn}" = $1 LIMIT 1`;
+      const columns = [
+        ...new Set([target.pkColumn, ...target.columnSets.simple]),
+      ];
+      const sql =
+        `SELECT ${columns.map((column) => `"${column}"`).join(', ')} ` +
+        `FROM "${rel.targetTable}" WHERE "${target.pkColumn}" = $1 LIMIT 1`;
       const result = await queryWithConnection(
-        {connection: conn, allowHardcoded: true}, sql, [value]
+        { connection: conn, allowHardcoded: true },
+        sql,
+        [value]
       );
       let row: MutableRow | null = null;
       if (result.rows.length > 0) {
@@ -269,30 +301,44 @@ export abstract class MutableRow {
     }
 
     const RelatedClass = getRowClass(rel.targetTable) as any;
-    const summaryColumns: string[] =
-      RelatedClass.columnSets?.summary ?? ['id', 'name', 'title', 'created_at'];
+    const summaryColumns: string[] = RelatedClass.columnSets?.summary ?? [
+      'id',
+      'name',
+      'title',
+      'created_at',
+    ];
     const relatedPk: string = RelatedClass.pkColumn ?? 'id';
 
     let rows: Record<string, unknown>[];
 
     if (rel.kind === 'link') {
-      const cols = summaryColumns.map(c => `t."${c}"`).join(', ');
-      const sql  = `SELECT ${cols} FROM "${rel.targetTable}" t `
-        + `JOIN "${rel.linkTable}" lt ON lt."${rel.targetFk}" = t."${relatedPk}" `
-        + `WHERE lt."${rel.sourceFk}" = $1`;
-      rows = (await queryWithConnection(
-        {connection: conn, allowHardcoded: true}, sql, [pkValue])
+      const cols = summaryColumns.map((c) => `t."${c}"`).join(', ');
+      const sql =
+        `SELECT ${cols} FROM "${rel.targetTable}" t ` +
+        `JOIN "${rel.linkTable}" lt ON lt."${rel.targetFk}" = t."${relatedPk}" ` +
+        `WHERE lt."${rel.sourceFk}" = $1`;
+      rows = (
+        await queryWithConnection(
+          { connection: conn, allowHardcoded: true },
+          sql,
+          [pkValue]
+        )
       ).rows;
     } else {
-      const cols = summaryColumns.map(c => `"${c}"`).join(', ');
-      const sql  = `SELECT ${cols} FROM "${rel.targetTable}" `
-        + `WHERE "${rel.foreignKey}" = $1`;
-      rows = (await queryWithConnection(
-        {connection: conn, allowHardcoded: true}, sql, [pkValue])
+      const cols = summaryColumns.map((c) => `"${c}"`).join(', ');
+      const sql =
+        `SELECT ${cols} FROM "${rel.targetTable}" ` +
+        `WHERE "${rel.foreignKey}" = $1`;
+      rows = (
+        await queryWithConnection(
+          { connection: conn, allowHardcoded: true },
+          sql,
+          [pkValue]
+        )
       ).rows;
     }
 
-    const items = rows.map(row => {
+    const items = rows.map((row) => {
       const item = new RelatedClass() as MutableRow;
       item._hydrate(row);
       item._markLoaded();
@@ -311,8 +357,8 @@ export abstract class MutableRow {
    * Relationship arrays are persisted in the same transaction.
    */
   async save(connection?: PoolClient): Promise<void> {
-    const conn     = connection ?? await getConnection();
-    const ownConn  = !connection;
+    const conn = connection ?? (await getConnection());
+    const ownConn = !connection;
 
     try {
       if (ownConn) await conn.query('BEGIN');
@@ -339,18 +385,19 @@ export abstract class MutableRow {
   }
 
   private async _insert(conn: PoolClient): Promise<void> {
-    const statics   = this.constructor as unknown as MutableRowStatics;
+    const statics = this.constructor as unknown as MutableRowStatics;
     const tableName = statics.tableName;
 
     // Include all columns that have been explicitly set (isDirty covers this
     // because UNSET !== UNSET is false, UNSET !== value is true).
-    const dirtyEntries = [...this._columnMap.entries()]
-      .filter(([, col]) => col.isDirty);
+    const dirtyEntries = [...this._columnMap.entries()].filter(
+      ([, col]) => col.isDirty
+    );
 
     if (dirtyEntries.length === 0) {
       // INSERT with defaults only — still need the row, e.g. for auto-PK
       const result = await queryWithConnection(
-        {connection: conn, allowHardcoded: true},
+        { connection: conn, allowHardcoded: true },
         `INSERT INTO "${tableName}" DEFAULT VALUES RETURNING *`,
         []
       );
@@ -359,46 +406,48 @@ export abstract class MutableRow {
     }
 
     const colNames = dirtyEntries.map(([name]) => `"${name}"`).join(', ');
-    const params   = dirtyEntries.map(([, col]) => col.value);
+    const params = dirtyEntries.map(([, col]) => col.value);
     const placeholders = params.map((_, i) => `$${i + 1}`).join(', ');
 
-    const sql    = `INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders}) RETURNING *`;
+    const sql = `INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders}) RETURNING *`;
     const result = await queryWithConnection(
-        {connection: conn, allowHardcoded: true}, sql, params
-      );
+      { connection: conn, allowHardcoded: true },
+      sql,
+      params
+    );
     if (result.rows.length > 0) this._hydrate(result.rows[0]);
   }
 
   private async _update(conn: PoolClient): Promise<void> {
-    const statics   = this.constructor as unknown as MutableRowStatics;
+    const statics = this.constructor as unknown as MutableRowStatics;
     const tableName = statics.tableName;
-    const pkColumn  = statics.pkColumn;
-    const pkValue   = this._pkValue(statics);
+    const pkColumn = statics.pkColumn;
+    const pkValue = this._pkValue(statics);
 
-    const dirtyEntries = [...this._columnMap.entries()]
-      .filter(([name, col]) => name !== pkColumn && col.isDirty);
+    const dirtyEntries = [...this._columnMap.entries()].filter(
+      ([name, col]) => name !== pkColumn && col.isDirty
+    );
 
     if (dirtyEntries.length === 0) return; // nothing to update
 
     const setClauses = dirtyEntries
       .map(([name], i) => `"${name}" = $${i + 1}`)
       .join(', ');
-    const params = [
-      ...dirtyEntries.map(([, col]) => col.value),
-      pkValue,
-    ];
+    const params = [...dirtyEntries.map(([, col]) => col.value), pkValue];
 
     const sql = `UPDATE "${tableName}" SET ${setClauses} WHERE "${pkColumn}" = $${params.length}`;
     await queryWithConnection(
-      {connection: conn, allowHardcoded: true}, sql, params
+      { connection: conn, allowHardcoded: true },
+      sql,
+      params
     );
   }
 
   private async _saveRelationships(conn: PoolClient): Promise<void> {
-    const statics   = this.constructor as unknown as MutableRowStatics;
-    const pkColumn  = statics.pkColumn;
-    const pkValue   = this._pkValue(statics);
-    const relDefs   = statics.relationshipDefs ?? [];
+    const statics = this.constructor as unknown as MutableRowStatics;
+    const pkColumn = statics.pkColumn;
+    const pkValue = this._pkValue(statics);
+    const relDefs = statics.relationshipDefs ?? [];
 
     for (const def of relDefs) {
       const relArray = this._relationships.get(def.name);
@@ -407,18 +456,22 @@ export abstract class MutableRow {
       if (def.kind === 'link') {
         for (const item of relArray.added) {
           if (item.isNew) await item.save(conn);
-          const itemPk = item._pkValue(item.constructor as unknown as MutableRowStatics);
+          const itemPk = item._pkValue(
+            item.constructor as unknown as MutableRowStatics
+          );
           await queryWithConnection(
-            {connection: conn, allowHardcoded: true},
-            `INSERT INTO "${def.linkTable}" ("${def.sourceFk}", "${def.targetFk}") `
-            + `VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+            { connection: conn, allowHardcoded: true },
+            `INSERT INTO "${def.linkTable}" ("${def.sourceFk}", "${def.targetFk}") ` +
+              `VALUES ($1, $2) ON CONFLICT DO NOTHING`,
             [pkValue, itemPk]
           );
         }
         for (const item of relArray.removed) {
-          const itemPk = item._pkValue(item.constructor as unknown as MutableRowStatics);
+          const itemPk = item._pkValue(
+            item.constructor as unknown as MutableRowStatics
+          );
           await queryWithConnection(
-            {connection: conn, allowHardcoded: true},
+            { connection: conn, allowHardcoded: true },
             `DELETE FROM "${def.linkTable}" WHERE "${def.sourceFk}" = $1 AND "${def.targetFk}" = $2`,
             [pkValue, itemPk]
           );
@@ -450,15 +503,16 @@ export abstract class MutableRow {
    *   If not loaded, relies on database CASCADE constraints.
    */
   async delete(connection?: PoolClient): Promise<void> {
-    if (this._isNew) throw new Error('Cannot delete a row that has not been saved');
+    if (this._isNew)
+      throw new Error('Cannot delete a row that has not been saved');
 
-    const statics   = this.constructor as unknown as MutableRowStatics;
+    const statics = this.constructor as unknown as MutableRowStatics;
     const tableName = statics.tableName;
-    const pkColumn  = statics.pkColumn;
-    const pkValue   = this._pkValue(statics);
-    const relDefs   = statics.relationshipDefs ?? [];
+    const pkColumn = statics.pkColumn;
+    const pkValue = this._pkValue(statics);
+    const relDefs = statics.relationshipDefs ?? [];
 
-    const conn    = connection ?? await getConnection();
+    const conn = connection ?? (await getConnection());
     const ownConn = !connection;
 
     try {
@@ -467,7 +521,7 @@ export abstract class MutableRow {
       for (const def of relDefs) {
         if (def.kind === 'link') {
           await queryWithConnection(
-            {connection: conn, allowHardcoded: true},
+            { connection: conn, allowHardcoded: true },
             `DELETE FROM "${def.linkTable}" WHERE "${def.sourceFk}" = $1`,
             [pkValue]
           );
@@ -481,7 +535,7 @@ export abstract class MutableRow {
       }
 
       await queryWithConnection(
-        {connection: conn, allowHardcoded: true},
+        { connection: conn, allowHardcoded: true },
         `DELETE FROM "${tableName}" WHERE "${pkColumn}" = $1`,
         [pkValue]
       );
@@ -500,7 +554,10 @@ export abstract class MutableRow {
   /** @internal — also used by _saveRelationships for related rows. */
   _pkValue(statics: MutableRowStatics): unknown {
     const col = this._columnMap.get(statics.pkColumn);
-    if (!col) throw new Error(`Primary key column '${statics.pkColumn}' not registered`);
+    if (!col)
+      throw new Error(
+        `Primary key column '${statics.pkColumn}' not registered`
+      );
     return col.value;
   }
 

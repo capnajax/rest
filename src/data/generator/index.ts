@@ -12,10 +12,10 @@
  *   "generate": "tsx src/data/generator/index.ts"
  */
 
-import * as path    from 'path';
-import * as url     from 'url';
-import { loadConfig }        from './config.js';
-import { readSchema }        from './schema-reader.js';
+import * as path from 'path';
+import * as url from 'url';
+import { loadConfig } from './config.js';
+import { readSchema } from './schema-reader.js';
 import { writeGeneratedFiles } from './writer.js';
 import { parseArgs } from '../../args.js';
 
@@ -37,13 +37,19 @@ async function main(): Promise<void> {
   console.log('📡  Connecting to database …');
   const tables = await readSchema(dbUrl, config);
 
-  const mutable   = tables.filter(t => !t.isReference);
-  const reference = tables.filter(t => t.isReference);
-  console.log(`    Found ${tables.length} table(s): `
-    + `${mutable.length} mutable, ${reference.length} reference`);
+  const mutable = tables.filter((t) => !t.isReference);
+  const reference = tables.filter((t) => t.isReference);
+  console.log(
+    `    Found ${tables.length} table(s): ` +
+      `${mutable.length} mutable, ${reference.length} reference`
+  );
 
   console.log(`✍️   Writing files …`);
-  const { written, skipped } = writeGeneratedFiles(tables, config.outputDir, PROJECT_ROOT);
+  const { written, skipped } = writeGeneratedFiles(
+    tables,
+    config.outputDir,
+    PROJECT_ROOT
+  );
 
   for (const f of written) {
     console.log(`    ✓ ${f}`);
@@ -55,7 +61,7 @@ async function main(): Promise<void> {
   console.log('✅  Generation complete.');
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('❌  Generator failed:', err);
   process.exit(1);
 });

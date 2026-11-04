@@ -1,5 +1,5 @@
-import { getLogger } from "../util/logger.js";
-import { yieldToEventLoop } from "../util/tools.js";
+import { getLogger } from '../util/logger.js';
+import { yieldToEventLoop } from '../util/tools.js';
 
 const MANAGER_MODULE = 'd.sessions::SessionManager';
 const SESSION_MODULE = 'd.sessions::Session';
@@ -15,7 +15,7 @@ class SessionManager {
    *  for an anonymous session.
    * @returns Promise that resolves to the newly created session.
    */
-  createSession(userId: string|null): Promise<Session> {
+  createSession(userId: string | null): Promise<Session> {
     const session = Session.create(userId);
     this.sessions.set(session.sessionId, session);
     return Promise.resolve(session);
@@ -38,7 +38,7 @@ class SessionManager {
 
   /**
    * Invalidate all sessions for a given user ID. This is useful for logging
-   * out a user from all devices or sessions. 
+   * out a user from all devices or sessions.
    * @param userId The ID of the user whose sessions should be invalidated.
    */
   async invalidateUserSessions(userId: string): Promise<void> {
@@ -65,7 +65,11 @@ class SessionManager {
     includeInvalidated: boolean = false
   ): Promise<Session | null> {
     const session = this.sessions.get(id);
-    if (session && !session.isExpired() && (includeInvalidated || !session.invalidated)) {
+    if (
+      session &&
+      !session.isExpired() &&
+      (includeInvalidated || !session.invalidated)
+    ) {
       return session.clone();
     }
     return null;
@@ -82,12 +86,14 @@ class SessionManager {
     includeInvalidated: boolean = false
   ): Promise<boolean> {
     const session = this.sessions.get(id);
-    return !!session && !session.isExpired() &&
-      (includeInvalidated || !session.invalidated);
+    return (
+      !!session &&
+      !session.isExpired() &&
+      (includeInvalidated || !session.invalidated)
+    );
   }
 
-  async patchSession(id: string, patch: Partial<Session>)
-  : Promise<boolean> {
+  async patchSession(id: string, patch: Partial<Session>): Promise<boolean> {
     const session = this.sessions.get(id);
     if (session && !session.isExpired()) {
       Object.assign(session.data, patch);
@@ -100,7 +106,7 @@ class SessionManager {
     if (this.sweepingInterval === null) {
       this.sweepingInterval = setInterval(() => {
         const log = getLogger(MANAGER_MODULE, 'startSweeping');
-        log.verbose("Sweeping expired sessions...");
+        log.verbose('Sweeping expired sessions...');
         for (const [id, session] of this.sessions) {
           if (session.isExpired()) {
             log.verbose(`Deleting expired session: ${id}`);
@@ -120,19 +126,14 @@ class SessionManager {
 }
 
 class Session {
-
   static idleLifetime = 1000 * 60 * 60 * 24; // 1 day
 
   static deserialize(serialized: string): Session {
     const data = JSON.parse(serialized);
-    return new Session(
-      data.id,
-      new Date(data.expiresAt),
-      data.userId
-    );
+    return new Session(data.id, new Date(data.expiresAt), data.userId);
   }
 
-  static create(userId: string|null): Session {
+  static create(userId: string | null): Session {
     const id = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + Session.idleLifetime);
     return new Session(id, expiresAt, userId);
@@ -141,24 +142,24 @@ class Session {
   #id: string;
   #invalidated: boolean = false;
   #expiresAt: Date;
-  #userId: string|null;
+  #userId: string | null;
   public data: Record<string, any>;
-  
+
   constructor(
     id: string,
-    expiresAt: Date|string|null,
-    userId: string|null|Record<string, any>,
+    expiresAt: Date | string | null,
+    userId: string | null | Record<string, any>,
     data: Record<string, any> = {}
   ) {
     if (!(expiresAt instanceof Date)) {
       data = userId as Record<string, any>;
-      userId = expiresAt as string|null;
+      userId = expiresAt as string | null;
       expiresAt = new Date(Date.now() + Session.idleLifetime);
     }
 
     this.#id = id;
     this.#expiresAt = expiresAt as Date;
-    this.#userId = userId as string|null;
+    this.#userId = userId as string | null;
     this.data = data;
   }
 
@@ -171,7 +172,7 @@ class Session {
   get userId() {
     return this.#userId;
   }
-  private set userId(newUserId: string|null) {
+  private set userId(newUserId: string | null) {
     this.#userId = newUserId;
   }
 
@@ -180,7 +181,7 @@ class Session {
       this.#id,
       new Date(this.#expiresAt.getTime()),
       this.#userId,
-      {...this.data}
+      { ...this.data }
     );
   }
 
@@ -212,7 +213,7 @@ class Session {
       id: this.#id,
       expiresAt: this.#expiresAt.toISOString(),
       userId: this.#userId,
-      data: this.data
+      data: this.data,
     });
   }
 
@@ -220,15 +221,15 @@ class Session {
    * Convert an anonymous session to an authenticated session by setting the
    * userId. Will throw if the session is already authenticated to a different
    * user or has already expired.
-   * @param newUserId 
-   * @returns 
+   * @param newUserId
+   * @returns
    */
   upgrade(newUserId: string): Session {
     if (this.isExpired()) {
-      throw new Error("Cannot upgrade an expired session.");
+      throw new Error('Cannot upgrade an expired session.');
     }
     if (this.userId !== null && this.userId !== newUserId) {
-      throw new Error("Session is already authenticated to a different user.");
+      throw new Error('Session is already authenticated to a different user.');
     }
     this.userId = newUserId;
     this.extend();

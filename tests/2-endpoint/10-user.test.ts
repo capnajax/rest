@@ -7,10 +7,9 @@ import { start, stop } from '../../src/index.ts';
 import { AppMeta } from '../../src/meta/meta-types.ts';
 
 suite('Example Test', () => {
-
   let app: Application<AppMeta>;
   let port: number;
-  
+
   const baseUrl = () => `http://localhost:${port}`;
 
   const getSession = async (cookie?: string) => {
@@ -22,8 +21,9 @@ suite('Example Test', () => {
   };
   const createAndPatchSession = async () => {
     const createResponse = await getSession();
-    const sessionCookie =
-      createResponse.headers.get('set-cookie')?.split(';')[0];
+    const sessionCookie = createResponse.headers
+      .get('set-cookie')
+      ?.split(';')[0];
 
     if (sessionCookie) {
       const patchResponse = await fetch(`${baseUrl()}/user/my-session`, {
@@ -40,8 +40,9 @@ suite('Example Test', () => {
   };
   const createPatchAndGetSession = async () => {
     const createResponse = await getSession();
-    const sessionCookie =
-      createResponse.headers.get('set-cookie')?.split(';')[0];
+    const sessionCookie = createResponse.headers
+      .get('set-cookie')
+      ?.split(';')[0];
 
     if (sessionCookie) {
       const patchResponse = await fetch(`${baseUrl()}/user/my-session`, {
@@ -59,7 +60,7 @@ suite('Example Test', () => {
 
   before(async () => {
     console.error(`Starting test server...`);
-    app = await start({port: await getPort()}, p => port = p);
+    app = await start({ port: await getPort() }, (p) => (port = p));
     console.error(`Test server started on port ${port}`);
   });
 
@@ -68,7 +69,10 @@ suite('Example Test', () => {
   });
 
   TestBattery.test('should pass', (battery) => {
-    battery.test('1 + 1 = 2').value(1 + 1).value(2).equal;
+    battery
+      .test('1 + 1 = 2')
+      .value(1 + 1)
+      .value(2).equal;
   });
 
   TestBattery.test('should work with async', async (battery) => {
@@ -78,30 +82,36 @@ suite('Example Test', () => {
   TestBattery.test('Create session', async (battery) => {
     const response = await getSession();
     battery.test('Session created ok').value(response.status).value(200).equal;
-    battery.test('Session cookie set')
-      .value(response.headers.get('set-cookie')).not.nil;
+    battery.test('Session cookie set').value(response.headers.get('set-cookie'))
+      .not.nil;
   });
 
   TestBattery.test('Patch session', async (battery) => {
     const response = await createAndPatchSession();
-    const body = await response?.json() as Record<string, any>;
+    const body = (await response?.json()) as Record<string, any>;
     battery.test('Session patched ok').value(response?.status).value(200).equal;
-    battery.test('Content-Type is application/json')
+    battery
+      .test('Content-Type is application/json')
       .value(response?.headers.get('content-type'))
       .value('application/json').equal;
-    battery.test('Response body has updated session data')
-      .value(body?.session?.data?.foo).value('bar').equal;
+    battery
+      .test('Response body has updated session data')
+      .value(body?.session?.data?.foo)
+      .value('bar').equal;
   });
 
   TestBattery.test('Get patched session', async (battery) => {
     const response = await createPatchAndGetSession();
-    const body = await response?.json() as Record<string, any>;
-    battery.test('Session retrieved ok').value(response?.status).value(200).equal;
-    battery.test('Content-Type is application/json')
+    const body = (await response?.json()) as Record<string, any>;
+    battery.test('Session retrieved ok').value(response?.status).value(200)
+      .equal;
+    battery
+      .test('Content-Type is application/json')
       .value(response?.headers.get('content-type'))
       .value('application/json').equal;
-    battery.test('Response body has updated session data')
-      .value(body?.session?.data?.foo).value('bar').equal;
+    battery
+      .test('Response body has updated session data')
+      .value(body?.session?.data?.foo)
+      .value('bar').equal;
   });
-
 });

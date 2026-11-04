@@ -1,55 +1,62 @@
-import { PoolClient, Query } from "pg";
-import { isRecord } from "../../util/tools.js";
-import { MutableRow } from "./mutable-row.js";
+import { PoolClient, Query } from 'pg';
+import { isRecord } from '../../util/tools.js';
+import { MutableRow } from './mutable-row.js';
 import {
-  ALL, ANY,
-  UnaryPGOperator, isUnaryPGOperator,
-  BinaryPGOperator, isBinaryPGOperator,
-  TrinaryPGOperator, isTrinaryPGOperator,
-  MultiaryPGOperator, isMultiaryPGOperator,
-  isPGParameterType, PGParameterType,
-  isValidPGParameterValue
-} from "./pg-types.js";
+  ALL,
+  ANY,
+  UnaryPGOperator,
+  isUnaryPGOperator,
+  BinaryPGOperator,
+  isBinaryPGOperator,
+  TrinaryPGOperator,
+  isTrinaryPGOperator,
+  MultiaryPGOperator,
+  isMultiaryPGOperator,
+  isPGParameterType,
+  PGParameterType,
+  isValidPGParameterValue,
+} from './pg-types.js';
 import {
   getConnection,
   QueryOptions,
   queryWithConnection,
-  returnConnection
-} from "../query.js";
-import QueryStream from "pg-query-stream";
+  returnConnection,
+} from '../query.js';
+import QueryStream from 'pg-query-stream';
 
-type ColumnValue = number|string|boolean|bigint|Buffer|Date;
+type ColumnValue = number | string | boolean | bigint | Buffer | Date;
 
 interface WhereClauseCommon {
-  column: string,
-  [k: string]: unknown
+  column: string;
+  [k: string]: unknown;
 }
 interface WhereClauseByUnaryOperator extends WhereClauseCommon {
-  type: PGParameterType,
-  operator: UnaryPGOperator,
+  type: PGParameterType;
+  operator: UnaryPGOperator;
 }
 interface WhereClauseByBinaryOperatorScalar extends WhereClauseCommon {
-  type: PGParameterType,
-  operator?: BinaryPGOperator, // default `=`
-  value: ColumnValue
+  type: PGParameterType;
+  operator?: BinaryPGOperator; // default `=`
+  value: ColumnValue;
 }
 interface WhereClauseByBinaryOperatorArray extends WhereClauseCommon {
-  type: PGParameterType,
-  operator?: BinaryPGOperator, // default `=`
-  value: ColumnValue[],
-  arrayComparison: 'ANY'|'ALL'
+  type: PGParameterType;
+  operator?: BinaryPGOperator; // default `=`
+  value: ColumnValue[];
+  arrayComparison: 'ANY' | 'ALL';
 }
 type WhereClauseByBinaryOperator =
-  WhereClauseByBinaryOperatorScalar|WhereClauseByBinaryOperatorArray;
+  | WhereClauseByBinaryOperatorScalar
+  | WhereClauseByBinaryOperatorArray;
 interface WhereClauseByTrinaryOperator extends WhereClauseCommon {
-  type: PGParameterType,
-  operator: TrinaryPGOperator,
-  value: [ColumnValue, ColumnValue]
+  type: PGParameterType;
+  operator: TrinaryPGOperator;
+  value: [ColumnValue, ColumnValue];
 }
 interface WhereClauseByMultiaryOperator extends WhereClauseCommon {
-  type: PGParameterType,
-  operator: MultiaryPGOperator,
-  value: (ColumnValue|ColumnValue[])[]
+  type: PGParameterType;
+  operator: MultiaryPGOperator;
+  value: (ColumnValue | ColumnValue[])[];
 }
 
 /**
@@ -58,10 +65,10 @@ interface WhereClauseByMultiaryOperator extends WhereClauseCommon {
  * `my_column = ANY($1::int[])`
  */
 export type WhereClauseByOperator =
-  WhereClauseByUnaryOperator |
-  WhereClauseByBinaryOperator |
-  WhereClauseByTrinaryOperator |
-  WhereClauseByMultiaryOperator;
+  | WhereClauseByUnaryOperator
+  | WhereClauseByBinaryOperator
+  | WhereClauseByTrinaryOperator
+  | WhereClauseByMultiaryOperator;
 
 /**
  * Defines a simple where clause that compares a column value to a value. Use
@@ -72,11 +79,11 @@ export type WhereClauseByOperator =
  * ```
  */
 export interface WhereClauseInSelect extends WhereClauseCommon {
-  select: string,
-  value: (ColumnValue|ColumnValue[])[]
+  select: string;
+  value: (ColumnValue | ColumnValue[])[];
 }
 
-export type WhereClause = WhereClauseByOperator|WhereClauseInSelect;
+export type WhereClause = WhereClauseByOperator | WhereClauseInSelect;
 
 class ClassifiedWhereClause {
   readonly unary: boolean = false; // set in constructor if true
@@ -85,7 +92,7 @@ class ClassifiedWhereClause {
   readonly multiary: boolean = false; // set in constructor if true
   readonly inSelect: boolean = false; // set in constructor if true
   readonly clause: WhereClause;
-  constructor (o: WhereClauseCommon|WhereClause) {
+  constructor(o: WhereClauseCommon | WhereClause) {
     if (isWhereClauseInSelect(o)) {
       this.inSelect = true;
     } else if (isWhereClauseUnaryFromCommon(o)) {
@@ -101,43 +108,43 @@ class ClassifiedWhereClause {
     }
     this.clause = o as WhereClause;
   }
-  get type(): PGParameterType|undefined {
-    return this.inSelect ? undefined : this.clause.type as PGParameterType;
+  get type(): PGParameterType | undefined {
+    return this.inSelect ? undefined : (this.clause.type as PGParameterType);
   }
-  get asUnary():WhereClauseByUnaryOperator {
+  get asUnary(): WhereClauseByUnaryOperator {
     if (this.unary) {
-      return this.clause as WhereClauseByUnaryOperator
+      return this.clause as WhereClauseByUnaryOperator;
     } else {
-      throw 'not a unary where clause'
-    };
+      throw 'not a unary where clause';
+    }
   }
-  get asBinary():WhereClauseByBinaryOperator {
+  get asBinary(): WhereClauseByBinaryOperator {
     if (this.binary) {
-      return this.clause as WhereClauseByBinaryOperator
+      return this.clause as WhereClauseByBinaryOperator;
     } else {
-      throw 'not a binary where clause'
-    };
+      throw 'not a binary where clause';
+    }
   }
-  get asTrinary():WhereClauseByTrinaryOperator {
+  get asTrinary(): WhereClauseByTrinaryOperator {
     if (this.trinary) {
-      return this.clause as WhereClauseByTrinaryOperator
+      return this.clause as WhereClauseByTrinaryOperator;
     } else {
-      throw 'not a trinary where clause'
-    };
+      throw 'not a trinary where clause';
+    }
   }
-  get asMultiary():WhereClauseByMultiaryOperator {
+  get asMultiary(): WhereClauseByMultiaryOperator {
     if (this.multiary) {
-      return this.clause as WhereClauseByMultiaryOperator
+      return this.clause as WhereClauseByMultiaryOperator;
     } else {
-      throw 'not a multiary where clause'
-    };
+      throw 'not a multiary where clause';
+    }
   }
-  get asInSelect():WhereClauseInSelect {
+  get asInSelect(): WhereClauseInSelect {
     if (this.inSelect) {
-      return this.clause as WhereClauseInSelect
+      return this.clause as WhereClauseInSelect;
     } else {
-      throw 'not an in-select where clause'
-    };
+      throw 'not an in-select where clause';
+    }
   }
 }
 
@@ -145,35 +152,38 @@ function isWhereClauseCommon(o: unknown): o is WhereClauseCommon {
   return isRecord(o) && typeof o.column === 'string';
 }
 function isColumnValue(o: unknown): o is ColumnValue {
-  return Buffer.isBuffer(o) || o instanceof Date ||
-    (['string', 'number', 'boolean', 'bigint'].includes(typeof o));
+  return (
+    Buffer.isBuffer(o) ||
+    o instanceof Date ||
+    ['string', 'number', 'boolean', 'bigint'].includes(typeof o)
+  );
 }
-function isWhereClauseUnaryFromCommon(o: WhereClauseCommon|WhereClause)
-: o is WhereClauseByUnaryOperator {
+function isWhereClauseUnaryFromCommon(
+  o: WhereClauseCommon | WhereClause
+): o is WhereClauseByUnaryOperator {
   return (
     isPGParameterType(o.type) &&
     o.value === undefined &&
     isUnaryPGOperator(o.operator)
   );
 }
-function isWhereClauseBinaryFromCommon(o: WhereClauseCommon|WhereClause)
-: o is WhereClauseByBinaryOperator {
+function isWhereClauseBinaryFromCommon(
+  o: WhereClauseCommon | WhereClause
+): o is WhereClauseByBinaryOperator {
   return (
     isPGParameterType(o.type) &&
-    ( o.operator === undefined || // default is =
-      isBinaryPGOperator(o.operator)
-    ) &&
-    ( ( Array.isArray(o.value) && ! Buffer.isBuffer(o.value) )
-      ? ( o.value.every(v => isColumnValue(v)) &&
-          typeof o.arrayComparison === 'string' &&
-          [ANY, ALL].includes(o.arrayComparison)
-        )
-      : isColumnValue(o.value)
-    )
+    (o.operator === undefined || // default is =
+      isBinaryPGOperator(o.operator)) &&
+    (Array.isArray(o.value) && !Buffer.isBuffer(o.value)
+      ? o.value.every((v) => isColumnValue(v)) &&
+        typeof o.arrayComparison === 'string' &&
+        [ANY, ALL].includes(o.arrayComparison)
+      : isColumnValue(o.value))
   );
 }
-function isWhereClauseTrinaryFromCommon(o: WhereClauseCommon|WhereClause)
-: o is WhereClauseByTrinaryOperator {
+function isWhereClauseTrinaryFromCommon(
+  o: WhereClauseCommon | WhereClause
+): o is WhereClauseByTrinaryOperator {
   return (
     isPGParameterType(o.type) &&
     Array.isArray(o.value) &&
@@ -183,62 +193,72 @@ function isWhereClauseTrinaryFromCommon(o: WhereClauseCommon|WhereClause)
     isTrinaryPGOperator(o.operator)
   );
 }
-function isWhereClauseMultiaryFromCommon(o: WhereClauseCommon|WhereClause)
-: o is WhereClauseByMultiaryOperator {
+function isWhereClauseMultiaryFromCommon(
+  o: WhereClauseCommon | WhereClause
+): o is WhereClauseByMultiaryOperator {
   return (
     isPGParameterType(o.type) &&
     Array.isArray(o.value) &&
-    o.value.every(oi => isColumnValue(oi)) &&
+    o.value.every((oi) => isColumnValue(oi)) &&
     isMultiaryPGOperator(o.operator)
   );
 }
 
-function isWhereClauseByUnaryOperator(o: unknown)
-: o is WhereClauseByUnaryOperator {
+function isWhereClauseByUnaryOperator(
+  o: unknown
+): o is WhereClauseByUnaryOperator {
   return isWhereClauseCommon(o) && isWhereClauseUnaryFromCommon(o);
 }
-function isWhereClauseByBinaryOperator(o: unknown)
-: o is WhereClauseByBinaryOperator {
+function isWhereClauseByBinaryOperator(
+  o: unknown
+): o is WhereClauseByBinaryOperator {
   return isWhereClauseCommon(o) && isWhereClauseBinaryFromCommon(o);
 }
-function isWhereClauseByTrinaryOperator(o: unknown)
-: o is WhereClauseByTrinaryOperator {
+function isWhereClauseByTrinaryOperator(
+  o: unknown
+): o is WhereClauseByTrinaryOperator {
   return isWhereClauseCommon(o) && isWhereClauseTrinaryFromCommon(o);
 }
-function isWhereClauseByArrayOperator(o: unknown)
-: o is WhereClauseByMultiaryOperator {
+function isWhereClauseByArrayOperator(
+  o: unknown
+): o is WhereClauseByMultiaryOperator {
   return isWhereClauseCommon(o) && isWhereClauseMultiaryFromCommon(o);
 }
-function isWhereClauseByOperatorFromCommon(o: WhereClauseCommon)
-: o is WhereClauseByOperator {
-  return isWhereClauseCommon(o) && (
-    isWhereClauseUnaryFromCommon(o) ||
-    isWhereClauseBinaryFromCommon(o) ||
-    isWhereClauseTrinaryFromCommon(o) ||
-    isWhereClauseMultiaryFromCommon(o)
+function isWhereClauseByOperatorFromCommon(
+  o: WhereClauseCommon
+): o is WhereClauseByOperator {
+  return (
+    isWhereClauseCommon(o) &&
+    (isWhereClauseUnaryFromCommon(o) ||
+      isWhereClauseBinaryFromCommon(o) ||
+      isWhereClauseTrinaryFromCommon(o) ||
+      isWhereClauseMultiaryFromCommon(o))
   );
 }
-function whereClauseInSelectFromCommon(o: WhereClauseCommon)
-: o is WhereClauseInSelect {
-  return typeof o.select === 'string' &&
+function whereClauseInSelectFromCommon(
+  o: WhereClauseCommon
+): o is WhereClauseInSelect {
+  return (
+    typeof o.select === 'string' &&
     Array.isArray(o.value) &&
-      o.value.every(v => {
-        return Array.isArray(v)
-          ? v.every(vv => isColumnValue(vv))
-          : isColumnValue(v);
-      });
+    o.value.every((v) => {
+      return Array.isArray(v)
+        ? v.every((vv) => isColumnValue(vv))
+        : isColumnValue(v);
+    })
+  );
 }
-function isWhereClauseByOperator(o: unknown):o is WhereClauseByOperator {
+function isWhereClauseByOperator(o: unknown): o is WhereClauseByOperator {
   return isWhereClauseCommon(o) && isWhereClauseByOperatorFromCommon(o);
 }
-function isWhereClauseInSelect(o: unknown):o is WhereClauseInSelect {
+function isWhereClauseInSelect(o: unknown): o is WhereClauseInSelect {
   return isWhereClauseCommon(o) && whereClauseInSelectFromCommon(o);
 }
-function isWhereClause(o: unknown):o is WhereClause {
-  return isWhereClauseCommon(o) &&
-    ( isWhereClauseByOperatorFromCommon(o) ||
-      whereClauseInSelectFromCommon(o)
-    );
+function isWhereClause(o: unknown): o is WhereClause {
+  return (
+    isWhereClauseCommon(o) &&
+    (isWhereClauseByOperatorFromCommon(o) || whereClauseInSelectFromCommon(o))
+  );
 }
 
 function isColumnValueForType(
@@ -248,18 +268,18 @@ function isColumnValueForType(
   return isColumnValue(value) && isValidPGParameterValue(type, value);
 }
 
-type OrderBy = string|{column: string, direction: 'ASC'|'DESC'}
+type OrderBy = string | { column: string; direction: 'ASC' | 'DESC' };
 
 export interface LoadByIdsOptions {
   /**
    * Caller-owned connection, which is left open. When omitted, search acquires
    * a pooled connection and releases it when finished.
    */
-  connection?: PoolClient,
+  connection?: PoolClient;
   /**
    * Additional where clauses.
    */
-  wheres?: WhereClause[]
+  wheres?: WhereClause[];
 }
 
 /**
@@ -270,47 +290,46 @@ export interface SearchOptions {
    * Columns to select. Omitted or empty lists select all columns (`*`).
    * Entries are inserted directly into SQL and must be trusted SQL.
    */
-  columns?: string[],
+  columns?: string[];
   /**
    * Caller-owned connection, which is left open. When omitted, search acquires
    * a pooled connection and releases it when finished.
    */
-  connection?: PoolClient,
+  connection?: PoolClient;
   /** Maximum number of rows to return. Omitted means no limit. */
-  limit?: number,
+  limit?: number;
   /** Number of rows to skip before returning results. Defaults to zero. */
-  offset?: number,
+  offset?: number;
   /**
    * Columns to sort by, in priority order. String entries default to `ASC`.
    * Omitted or empty lists leave the order unspecified. Column names are
    * inserted directly into SQL and must be trusted SQL.
    */
-  orderBy?: OrderBy|OrderBy[]
+  orderBy?: OrderBy | OrderBy[];
 }
 
-export function loadByIds<T extends {id: number}>(
+export function loadByIds<T extends { id: number }>(
   tablename: string,
-  ids: (number|string)[],
-  cb: (row:T)=>void
+  ids: (number | string)[],
+  cb: (row: T) => void
 ): Promise<void>;
-export function loadByIds<T extends {id: number}>(
+export function loadByIds<T extends { id: number }>(
   tablename: string,
-  ids: (number|string)[],
+  ids: (number | string)[],
   options: LoadByIdsOptions,
-  cb: (row:T)=>void
+  cb: (row: T) => void
 ): Promise<void>;
-export function loadByIds<T extends {id: number}>(
+export function loadByIds<T extends { id: number }>(
   tablename: string,
-  ids: (number|string)[],
+  ids: (number | string)[],
   options?: LoadByIdsOptions
 ): Promise<T[]>;
-export function loadByIds<T extends {id: number}>(
+export function loadByIds<T extends { id: number }>(
   tablename: string,
-  ids: (number|string)[],
-  options?: LoadByIdsOptions|((row:T)=>void),
-  cb?: (row:T)=>void
-): Promise<T[]|void> {
-
+  ids: (number | string)[],
+  options?: LoadByIdsOptions | ((row: T) => void),
+  cb?: (row: T) => void
+): Promise<T[] | void> {
   if (typeof options === 'function') {
     cb = options;
     options = undefined;
@@ -319,31 +338,33 @@ export function loadByIds<T extends {id: number}>(
 
   // avoid a query if the list is empty
   if (ids.length === 0) {
-    return cb
-      ? Promise.resolve()
-      : Promise.resolve([]);
+    return cb ? Promise.resolve() : Promise.resolve([]);
   }
 
   const searchOptions: SearchOptions = {
-    connection: options.connection
+    connection: options.connection,
   };
 
   // convert all strings to numbers and filter out duplicates
-  const uniqueIds:number[] = [...new Set(ids.map(id => {
-    const result = typeof id === 'string' ?  Number.parseInt(id) : id;
-    if (Number.isNaN(result)) {
-      throw `invalid id "${id}"`;
-    }
-    return result;
-  }))];
-  const where:WhereClauseByBinaryOperator = {
+  const uniqueIds: number[] = [
+    ...new Set(
+      ids.map((id) => {
+        const result = typeof id === 'string' ? Number.parseInt(id) : id;
+        if (Number.isNaN(result)) {
+          throw `invalid id "${id}"`;
+        }
+        return result;
+      })
+    ),
+  ];
+  const where: WhereClauseByBinaryOperator = {
     column: 'id',
     type: 'int',
     operator: '=',
     value: uniqueIds,
-    arrayComparison: ANY
+    arrayComparison: ANY,
   };
-  const wheres:WhereClause[] = [where];
+  const wheres: WhereClause[] = [where];
   if (options.wheres) {
     wheres.push(...options.wheres);
   }
@@ -372,29 +393,29 @@ export function loadByIds<T extends {id: number}>(
  * @remarks A supplied connection remains owned by the caller. Otherwise, the
  * function acquires a connection and attempts to release it when finished.
  */
-export function search<T extends {id: number}>(
+export function search<T extends { id: number }>(
   tablename: string,
   whereClauses: WhereClause[],
   options: SearchOptions,
-  cb: (row:T)=>void
+  cb: (row: T) => void
 ): Promise<void>;
-export function search<T extends {id: number}>(
+export function search<T extends { id: number }>(
   tablename: string,
   whereClauses: WhereClause[],
-  options: SearchOptions,
+  options: SearchOptions
 ): Promise<T[]>;
-export async function search<T extends {id: number}>(
+export async function search<T extends { id: number }>(
   tablename: string,
   whereClauses: WhereClause[],
-  options:SearchOptions = {},
-  cb?: (row:T)=>void
-): Promise<T[]|void> {
+  options: SearchOptions = {},
+  cb?: (row: T) => void
+): Promise<T[] | void> {
   const params: any[] = [];
   const whereClauseParts: string[] = [];
 
-  const param = (cwc:ClassifiedWhereClause, index?:number): string => {
-    let placeholder!:string;
-    const value = (v:unknown):unknown => {
+  const param = (cwc: ClassifiedWhereClause, index?: number): string => {
+    let placeholder!: string;
+    const value = (v: unknown): unknown => {
       const values = Array.isArray(v) ? v : [v];
       for (const [index, item] of values.entries()) {
         if (!cwc.type) {
@@ -404,24 +425,25 @@ export async function search<T extends {id: number}>(
           const location = Array.isArray(v) ? ` at array index ${index}` : '';
           throw new TypeError(
             `Invalid value${location} for column "${cwc.clause.column}" ` +
-            `with PostgreSQL parameter type "${cwc.type}"`
+              `with PostgreSQL parameter type "${cwc.type}"`
           );
         }
       }
       if (cwc.type === 'json' || cwc.type === 'jsonb') {
         return Array.isArray(v)
-          ? v.map(vi => JSON.parse(vi as string))
+          ? v.map((vi) => JSON.parse(vi as string))
           : JSON.parse(v as string);
       } else {
         return v;
       }
-    }
+    };
     if (cwc.multiary) {
       placeholder = (cwc.asMultiary.value as unknown[])
-        .map(v => {
+        .map((v) => {
           params.push(value(v));
           return `$${params.length}::${cwc.type as string}`;
-        }).join(', ');
+        })
+        .join(', ');
     } else if (cwc.trinary) {
       params.push(value((cwc.asTrinary.value as unknown[])[index as number]));
       placeholder = `$${params.length}::${cwc.type as string}`;
@@ -435,7 +457,7 @@ export async function search<T extends {id: number}>(
       placeholder = `$${params.length}::${cwc.type as string}`;
     }
     return placeholder;
-  }
+  };
 
   for (const wc of whereClauses) {
     if (isWhereClauseCommon(wc)) {
@@ -443,7 +465,7 @@ export async function search<T extends {id: number}>(
       if (cwc.unary) {
         whereClauseParts.push(`${wc.column} ${wc.operator}`);
       } else if (cwc.binary) {
-        const op = wc.operator || '='
+        const op = wc.operator || '=';
         if (Array.isArray(wc.value)) {
           whereClauseParts.push(
             `${wc.column} ${op} ${wc.arrayComparison}(${param(cwc)}[])`
@@ -457,14 +479,12 @@ export async function search<T extends {id: number}>(
         );
       } else if (cwc.multiary) {
         if (cwc.asMultiary.value.length) {
-          whereClauseParts.push(
-            `${wc.column} ${wc.operator} (${param(cwc)})`
-          );
+          whereClauseParts.push(`${wc.column} ${wc.operator} (${param(cwc)})`);
         } else {
           throw 'Empty multiarty value set';
         }
       } else if (cwc.inSelect) {
-        let $$index!:number;
+        let $$index!: number;
         let select = `${cwc.asInSelect.column} IN (${cwc.asInSelect.select})`;
         let index = 0;
         while (-1 !== ($$index = select.indexOf('$$'))) {
@@ -474,7 +494,7 @@ export async function search<T extends {id: number}>(
           select =
             select.substring(0, $$index) +
             param(cwc, index++) +
-            select.substring($$index+2);
+            select.substring($$index + 2);
         }
         if (cwc.asInSelect.value.length > index) {
           throw 'more values than parameters in where-select clause';
@@ -484,27 +504,31 @@ export async function search<T extends {id: number}>(
         throw 'Unrecognized where clause';
       }
     } else {
-      throw 'Invalid where clause'
+      throw 'Invalid where clause';
     }
   }
 
-  let orderByClause:string|null = null;
+  let orderByClause: string | null = null;
   if (
     options.orderBy &&
-    ( !Array.isArray(options.orderBy) || options.orderBy.length)
+    (!Array.isArray(options.orderBy) || options.orderBy.length)
   ) {
     const ob = Array.isArray(options.orderBy)
       ? options.orderBy
       : [options.orderBy];
-    orderByClause = ` ORDER BY ` + ob.map(obi => {
-      if (typeof obi === 'string') {
-        obi = { column: obi, direction: 'ASC' };
-      }
-      return `${obi.column} ${obi.direction}`;
-    }).join(', ');
+    orderByClause =
+      ` ORDER BY ` +
+      ob
+        .map((obi) => {
+          if (typeof obi === 'string') {
+            obi = { column: obi, direction: 'ASC' };
+          }
+          return `${obi.column} ${obi.direction}`;
+        })
+        .join(', ');
   }
 
-  let limitClause:string = '';
+  let limitClause: string = '';
   if (options.limit !== undefined) {
     limitClause = ` LIMIT ${options.limit}`;
   }
@@ -516,7 +540,7 @@ export async function search<T extends {id: number}>(
 
   let query = `SELECT ${columns} FROM ${tablename}`;
   if (whereClauseParts.length) {
-    query += ` WHERE ${whereClauseParts.join(' AND ')}`
+    query += ` WHERE ${whereClauseParts.join(' AND ')}`;
   }
   if (orderByClause) {
     query += orderByClause;
@@ -525,27 +549,23 @@ export async function search<T extends {id: number}>(
     query += limitClause;
   }
 
-  let conn!:QueryOptions|undefined
-  const ownConn:boolean = !options.connection;
+  let conn!: QueryOptions | undefined;
+  const ownConn: boolean = !options.connection;
   try {
     conn = {
-      connection: options.connection ?? await getConnection(),
-      allowHardcoded: true
+      connection: options.connection ?? (await getConnection()),
+      allowHardcoded: true,
     };
 
     if (cb) {
-      const queryStream = conn.connection.query(
-        new QueryStream(query, params)
-      );
+      const queryStream = conn.connection.query(new QueryStream(query, params));
       for await (const row of queryStream) {
         cb(row as T);
       }
       return;
     } else {
-      const queryResult = await queryWithConnection(
-        conn, query, params
-      );
-      return queryResult.rows as T[];    
+      const queryResult = await queryWithConnection(conn, query, params);
+      return queryResult.rows as T[];
     }
   } finally {
     if (ownConn && conn) {

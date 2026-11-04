@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import type { PoolClient } from 'pg';
 import {
-  ContentTypesRow, DbPropertiesRow, FormFactorsRow, RealmsRow
+  ContentTypesRow,
+  DbPropertiesRow,
+  FormFactorsRow,
+  RealmsRow,
 } from '../../src/data/generated/index.js';
 import { ReferenceData } from '../../src/data/orm/reference-data.js';
 import { initializeLogger, resetLogger } from '../../src/util/logger.js';
@@ -11,7 +14,7 @@ after(() => resetLogger());
 
 test('startup loads public reference rows and resolves public targets', async () => {
   initializeLogger({
-    logging: { level: 'error', transport: { type: 'console' } }
+    logging: { level: 'error', transport: { type: 'console' } },
   });
   const calls: string[] = [];
   const client = {
@@ -21,13 +24,16 @@ test('startup loads public reference rows and resolves public targets', async ()
         ? [{ id: 1, name: 'Article', form_factor_id: 2 }]
         : [{ id: 2, name: 'Feature' }];
       return { rows };
-    }
+    },
   } as unknown as PoolClient;
 
   await ReferenceData.initialize(client);
   assert.equal(calls.length, 4);
   for (const ctor of [
-    ContentTypesRow, DbPropertiesRow, FormFactorsRow, RealmsRow
+    ContentTypesRow,
+    DbPropertiesRow,
+    FormFactorsRow,
+    RealmsRow,
   ]) {
     const rows = ReferenceData.all(ctor);
     assert.equal(rows.length, 1);

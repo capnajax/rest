@@ -12,14 +12,16 @@ import { InvalidQuery } from './exceptions.js';
 export function assertPGableInteger(
   o: unknown,
   options?: {
-    gtzero?: boolean,
-    gezero?: boolean
+    gtzero?: boolean;
+    gezero?: boolean;
   }
 ): asserts o is number {
   const lowerBound = options?.gtzero ? 1 : options?.gezero ? 0 : -2147483648;
   if (
-    typeof o !== 'number' || !Number.isInteger(o) ||
-    o < lowerBound || o > 2147483647
+    typeof o !== 'number' ||
+    !Number.isInteger(o) ||
+    o < lowerBound ||
+    o > 2147483647
   ) {
     throw new InvalidQuery(
       'Expected a PostgreSQL integer within the permitted range.'
@@ -33,7 +35,7 @@ export function assertPGableInteger(
  */
 export function assertPGableIntegerArray(o: unknown): asserts o is number[] {
   if (Array.isArray(o)) {
-    o.forEach(oi => assertPGableInteger(oi));
+    o.forEach((oi) => assertPGableInteger(oi));
   } else {
     throw new InvalidQuery('Expected an array of PostgreSQL integers.');
   }
@@ -46,7 +48,7 @@ export function assertPGableIntegerArray(o: unknown): asserts o is number[] {
  * @param obj The value to copy. Primitive values are returned unchanged.
  * @returns The copied value.
  */
-export function deepClone<T>(obj: T|null): T|null {
+export function deepClone<T>(obj: T | null): T | null {
   if (Array.isArray(obj)) {
     return obj.map(deepClone) as any;
   } else if (obj === null) {
@@ -144,9 +146,13 @@ export function isNil(value: any): value is null | undefined {
  * @param value The value to test.
  * @returns Whether the value has the required shape.
  */
-export function isNumberOrNumberArray(value: unknown): value is number|number[] {
-  return typeof value === 'number' ||
-    (Array.isArray(value) && value.every(item => typeof item === 'number'));
+export function isNumberOrNumberArray(
+  value: unknown
+): value is number | number[] {
+  return (
+    typeof value === 'number' ||
+    (Array.isArray(value) && value.every((item) => typeof item === 'number'))
+  );
 }
 
 /**
@@ -162,17 +168,20 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
  * @param value The date or date string to test.
  * @returns Whether the value represents a valid date.
  */
-export function isValidDate(value: unknown): value is string|Date {
-  return ( value instanceof Date && !Number.isNaN(value.valueOf()) ) ||
-    ( typeof value === 'string' && !Number.isNaN(new Date(value).valueOf()) );
+export function isValidDate(value: unknown): value is string | Date {
+  return (
+    (value instanceof Date && !Number.isNaN(value.valueOf())) ||
+    (typeof value === 'string' && !Number.isNaN(new Date(value).valueOf()))
+  );
 }
 /**
  * Asserts that a value is a non-null, non-array object.
  * @param value The value to validate.
  * @throws {TypeError} If the value is not a record.
  */
-export function assertRecord(value: unknown)
-: asserts value is Record<string, unknown> {
+export function assertRecord(
+  value: unknown
+): asserts value is Record<string, unknown> {
   if (!isRecord(value)) {
     throw TypeError('Expected an object');
   }
@@ -183,7 +192,7 @@ export function assertRecord(value: unknown)
  * @param value The value or array to normalise.
  * @returns The existing array or a new single-element array.
  */
-export function normalizeArray<T>(value: T|T[]): T[] {
+export function normalizeArray<T>(value: T | T[]): T[] {
   return Array.isArray(value) ? value : [value];
 }
 
@@ -224,7 +233,8 @@ export function normalizeArray<T>(value: T|T[]): T[] {
  * without a default.
  */
 export function normalizeBoolean(
-  value?: string|boolean, booleanOptions?: {name?: string, default?: boolean}
+  value?: string | boolean,
+  booleanOptions?: { name?: string; default?: boolean }
 ) {
   if (value === undefined) {
     if (booleanOptions && Object.hasOwn(booleanOptions, 'default')) {
@@ -235,17 +245,19 @@ export function normalizeBoolean(
   if (typeof value === 'boolean') {
     return value;
   }
-  const vlc = value.toLowerCase()
+  const vlc = value.toLowerCase();
   if (booleanOptions?.name && [value, vlc].includes(booleanOptions?.name)) {
     return true;
-  } else if (['y','yes','t','true','1','si','sí','sim'].includes(vlc)) {
+  } else if (['y', 'yes', 't', 'true', '1', 'si', 'sí', 'sim'].includes(vlc)) {
     return true;
-  } else if (['n','no','f','false','0','non','nao','não'].includes(vlc)) {
+  } else if (
+    ['n', 'no', 'f', 'false', '0', 'non', 'nao', 'não'].includes(vlc)
+  ) {
     return false;
   } else {
     throw new InvalidQuery('Expected a recognized boolean value.');
-  }          
-};
+  }
+}
 
 /**
  * Parses a date string or returns an existing Date by reference.
@@ -253,15 +265,12 @@ export function normalizeBoolean(
  * @returns The existing Date or the parsed date.
  * @throws {InvalidQuery} if a string cannot be parsed as a date.
  */
-export function normalizeDate(value: string|Date): Date {
+export function normalizeDate(value: string | Date): Date {
   if (!isValidDate(value)) {
     throw new InvalidQuery('Expected a valid date.');
   }
-  return value instanceof Date
-    ? value
-    : new Date(value);
-};
-
+  return value instanceof Date ? value : new Date(value);
+}
 
 /**
  * Normalises a parameter that could be a string or an array of strings,
@@ -275,18 +284,18 @@ export function normalizeDate(value: string|Date): Date {
  * @throws {InvalidQuery} for multiple values in `throw` mode.
  */
 export function normalizeZeroOrOne(
-  value?:string|string[],
-  multipleValues:'first'|'last'|'throw' = 'throw'
-):string|undefined {
+  value?: string | string[],
+  multipleValues: 'first' | 'last' | 'throw' = 'throw'
+): string | undefined {
   if (Array.isArray(value)) {
     if (value.length > 1) {
-      switch(multipleValues) {
-      case 'first':
-        return value[0];
-      case 'last':
-        return value[value.length-1];
-      case 'throw':
-        throw new InvalidQuery('Expected at most one parameter value.');
+      switch (multipleValues) {
+        case 'first':
+          return value[0];
+        case 'last':
+          return value[value.length - 1];
+        case 'throw':
+          throw new InvalidQuery('Expected at most one parameter value.');
       }
     } else if (value.length === 1) {
       return value[0];
@@ -296,7 +305,7 @@ export function normalizeZeroOrOne(
   } else {
     return value;
   }
-};
+}
 
 /**
  * Returns a copy of a `Record` that does not contain any of the entries listed
@@ -307,8 +316,8 @@ export function normalizeZeroOrOne(
  */
 export function omit(
   o: Record<string, unknown>,
-  ...keys:readonly (string|(readonly string[]))[]
-):Record<string, unknown> {
+  ...keys: readonly (string | readonly string[])[]
+): Record<string, unknown> {
   const result: any = {};
   const flatKeys = keys.flat();
   for (const key in o) {
@@ -323,7 +332,7 @@ export function omit(
  * Creates a handler to send results of request to a response. Collects one
  * results object at a time, and either sends them each back in real time if
  * streaming is enabled, or returns them all a single array if streaming mode
- * is not enabled. 
+ * is not enabled.
  * @param stream set to `true` to stream the results, that is send one item
  *  per line in new-line delimited JSON. Set to `false` to send all the results
  *  as a single array in JSON.
@@ -336,18 +345,20 @@ export function outputHandler(stream: boolean, res: Response) {
     accumulator: stream ? null : new Array<string>(),
     isStreaming: stream,
     object: stream
-      ? (datum:unknown):void => {
+      ? (datum: unknown): void => {
           res.sendChunk(JSON.stringify(datum) + '\n');
         }
-      : (datum:unknown):void => {
+      : (datum: unknown): void => {
           result.accumulator?.push(JSON.stringify(datum));
         },
     end: stream
-      ? ():void => { res.end(); }
-      : ():void => {
-        res.send(`[${result.accumulator?.join(',')}]`);
-        res.end();
-      }
+      ? (): void => {
+          res.end();
+        }
+      : (): void => {
+          res.send(`[${result.accumulator?.join(',')}]`);
+          res.end();
+        },
   };
   res.headers.set(
     'Content-Type',
@@ -366,14 +377,14 @@ export function outputHandler(stream: boolean, res: Response) {
  */
 export function pick(
   o: Record<string, unknown>,
-  ...keys:readonly (string|(readonly string[]))[]
-):Record<string, unknown> {
-  const resultEntries:[string, unknown][] = [];
+  ...keys: readonly (string | readonly string[])[]
+): Record<string, unknown> {
+  const resultEntries: [string, unknown][] = [];
   const addIfAvailable = (key: string) => {
     if (Object.hasOwn(o, key)) {
-      resultEntries.push([key, o[key]])
+      resultEntries.push([key, o[key]]);
     }
-  }
+  };
   for (const k of keys) {
     if (Array.isArray(k)) {
       for (const kk of k) {
@@ -391,7 +402,7 @@ export function pick(
  * @param length how long the string should be
  * @returns a random string.
  */
-export function randomString(length: number=6):string {
+export function randomString(length: number = 6): string {
   let result = String.fromCharCode(
     'a'.charCodeAt(0) + Math.floor(Math.random() * 26)
   );
@@ -400,7 +411,7 @@ export function randomString(length: number=6):string {
     if (c < 10) {
       result += `${c}`;
     } else {
-      result += `${String.fromCharCode('a'.charCodeAt(0) + c - 10)}`
+      result += `${String.fromCharCode('a'.charCodeAt(0) + c - 10)}`;
     }
   }
   return result;
@@ -413,5 +424,5 @@ export function randomString(length: number=6):string {
  * @returns Promise that resolves on the next tick of the event loop.
  */
 export function yieldToEventLoop(): Promise<void> {
-  return new Promise(resolve => setImmediate(resolve));
+  return new Promise((resolve) => setImmediate(resolve));
 }

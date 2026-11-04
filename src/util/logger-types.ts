@@ -38,7 +38,9 @@ export interface LogTransportFactoryOptions {
   format: winston.Logform.Format;
   level: string;
 }
-export function isLogTransportFactoryOptions(value: any): value is LogTransportFactoryOptions {
+export function isLogTransportFactoryOptions(
+  value: any
+): value is LogTransportFactoryOptions {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -62,8 +64,10 @@ export function isLoggerLevelConfig(value: any): value is LoggerLevelConfig {
     typeof value === 'object' &&
     value !== null &&
     (value.level === undefined || typeof value.level === 'string') &&
-    (value.transport === undefined || isLogTransportConfig(value.transport) || 
-      (Array.isArray(value.transport) && value.transport.every(isLogTransportConfig))) &&
+    (value.transport === undefined ||
+      isLogTransportConfig(value.transport) ||
+      (Array.isArray(value.transport) &&
+        value.transport.every(isLogTransportConfig))) &&
     (value.format === undefined || typeof value.format === 'string') &&
     (value.isEndpoint === undefined || typeof value.isEndpoint === 'boolean')
   );
@@ -81,8 +85,9 @@ export function isMethodConfig(value: any): value is MethodConfig {
   const v = value as any;
   return (
     isLoggerLevelConfig(value) &&
-    (v.paths === undefined || 
-      (typeof v.paths === 'object' && v.paths !== null && 
+    (v.paths === undefined ||
+      (typeof v.paths === 'object' &&
+        v.paths !== null &&
         Object.values(v.paths).every(isPathConfig)))
   );
 }
@@ -94,28 +99,32 @@ export function isModuleConfig(value: any): value is ModuleConfig {
   const v = value as any;
   return (
     isLoggerLevelConfig(value) &&
-    (v.methods === undefined || 
-      (typeof v.methods === 'object' && v.methods !== null && 
+    (v.methods === undefined ||
+      (typeof v.methods === 'object' &&
+        v.methods !== null &&
         Object.values(v.methods).every(isMethodConfig)))
   );
 }
 
 export interface LoggerConfigLoggingObject extends LoggerLevelConfig {
   modules?: Record<string, ModuleConfig>;
-};
-export function isLoggerConfigLoggingObject(value: any): value is LoggerConfigLoggingObject {
+}
+export function isLoggerConfigLoggingObject(
+  value: any
+): value is LoggerConfigLoggingObject {
   const v = value as any;
   return (
     isLoggerLevelConfig(value) &&
-    (v.modules === undefined || 
-      (typeof v.modules === 'object' && v.modules !== null && 
+    (v.modules === undefined ||
+      (typeof v.modules === 'object' &&
+        v.modules !== null &&
         Object.values(v.modules).every(isModuleConfig)))
   );
 }
 
 export interface LoggerConfig {
   logging: LoggerConfigLoggingObject;
-};
+}
 export function isLoggerConfig(value: any): value is LoggerConfig {
   return (
     typeof value === 'object' &&
@@ -125,5 +134,6 @@ export function isLoggerConfig(value: any): value is LoggerConfig {
 }
 
 export type FormatType = (
-  mmp: MMP, levelConfig: LoggerLevelConfig
-) => winston.Logform.Format
+  mmp: MMP,
+  levelConfig: LoggerLevelConfig
+) => winston.Logform.Format;

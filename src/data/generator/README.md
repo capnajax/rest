@@ -69,33 +69,33 @@ Declares which array relationships appear on a table's row class and which load 
 ```yaml
 relationships:
   articles:
-    - name: tags              # Property name on ArticleRow
-      kind: link              # Many-to-many via a link table
+    - name: tags # Property name on ArticleRow
+      kind: link # Many-to-many via a link table
       linkTable: article_tags
-      sourceFk: article_id    # FK pointing to the parent (articles)
-      targetFk: tag_id        # FK pointing to the related row (tags)
+      sourceFk: article_id # FK pointing to the parent (articles)
+      targetFk: tag_id # FK pointing to the related row (tags)
       targetTable: tags
-      loadWith: simple        # Loaded by loadSimple() and loadAll()
+      loadWith: simple # Loaded by loadSimple() and loadAll()
 
     - name: comments
-      kind: direct            # One-to-many via FK on the target table
-      foreignKey: article_id  # FK on comments pointing to articles
+      kind: direct # One-to-many via FK on the target table
+      foreignKey: article_id # FK on comments pointing to articles
       targetTable: comments
       loadWith: simple
 
-    - name: attachments       # Heavy data — only load when explicitly needed
+    - name: attachments # Heavy data — only load when explicitly needed
       kind: direct
       foreignKey: article_id
       targetTable: media
-      loadWith: all           # Loaded only by loadAll()
+      loadWith: all # Loaded only by loadAll()
 ```
 
 **`loadWith` values:**
 
-| Value | Included in |
-| --- | --- |
+| Value    | Included in                    |
+| -------- | ------------------------------ |
 | `simple` | `loadSimple()` and `loadAll()` |
-| `all` | `loadAll()` only |
+| `all`    | `loadAll()` only               |
 
 `loadSummary()` never loads any relationships.
 
@@ -103,7 +103,7 @@ relationships:
 
 ```yaml
 output:
-  directory: src/data/generated   # default
+  directory: src/data/generated # default
 ```
 
 ---
@@ -120,16 +120,16 @@ The generator derives `summary` and `simple`/`all` column sets automatically:
 
 ## PostgreSQL → TypeScript type mapping
 
-| PostgreSQL type | TypeScript type |
-| --- | --- |
-| `integer`, `serial`, `bigint`, `numeric`, `real`, … | `number` |
-| `text`, `varchar`, `uuid`, `citext`, … | `string` |
-| `boolean` | `boolean` |
-| `timestamp`, `date`, `time` | `Date` |
-| `json`, `jsonb` | `Record<string, unknown>` |
-| `bytea` | `Buffer` |
-| `ARRAY` (any element type) | `string[]` / `number[]` / `unknown[]` |
-| user-defined / enum | `string` (narrow in your extension class) |
+| PostgreSQL type                                     | TypeScript type                           |
+| --------------------------------------------------- | ----------------------------------------- |
+| `integer`, `serial`, `bigint`, `numeric`, `real`, … | `number`                                  |
+| `text`, `varchar`, `uuid`, `citext`, …              | `string`                                  |
+| `boolean`                                           | `boolean`                                 |
+| `timestamp`, `date`, `time`                         | `Date`                                    |
+| `json`, `jsonb`                                     | `Record<string, unknown>`                 |
+| `bytea`                                             | `Buffer`                                  |
+| `ARRAY` (any element type)                          | `string[]` / `number[]` / `unknown[]`     |
+| user-defined / enum                                 | `string` (narrow in your extension class) |
 
 Nullable columns are typed as `T | null`.
 

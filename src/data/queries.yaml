@@ -120,4 +120,3 @@ queries:
       description: Get a user by their ID
       query: |
         SELECT * FROM people WHERE id = $1;
-    

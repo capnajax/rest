@@ -5,7 +5,14 @@ import type { RelationshipDef } from '../../src/data/orm/types.js';
 
 class PermalinkWithArticle extends PermalinksRow {
   static override readonly relationshipDefs: RelationshipDef[] = [
-    { name: 'article', kind: 'single', foreignKey: 'article_id', targetTable: 'articles', isReference: false, loadWith: 'simple' },
+    {
+      name: 'article',
+      kind: 'single',
+      foreignKey: 'article_id',
+      targetTable: 'articles',
+      isReference: false,
+      loadWith: 'simple',
+    },
   ];
 
   protected override _getSingleRelationship(): never {
@@ -14,12 +21,18 @@ class PermalinkWithArticle extends PermalinksRow {
 }
 
 test('permalink JSON retains article_id without traversing an article back-reference', () => {
-  const permalink = new PermalinkWithArticle({ id: 27, name: 'hello', article_id: 10 }, true);
+  const permalink = new PermalinkWithArticle(
+    { id: 27, name: 'hello', article_id: 10 },
+    true
+  );
   const article = { id: 10, primary_permalink: permalink };
   Object.assign(permalink, { article });
   const expected = { id: 27, name: 'hello', article_id: 10 };
   assert.deepEqual(permalink.toJSON(), expected);
-  assert.deepEqual(JSON.parse(JSON.stringify(article)), { id: 10, primary_permalink: expected });
+  assert.deepEqual(JSON.parse(JSON.stringify(article)), {
+    id: 10,
+    primary_permalink: expected,
+  });
 });
 
 test('permalink JSON omits unloaded columns', () => {

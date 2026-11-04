@@ -6,7 +6,6 @@
 import { _FormFactorsRowBase } from '../generated/_form-factors-row-base.js';
 import { ReferenceData } from '../orm/reference-data.js';
 
-export class FormFactorsRow extends _FormFactorsRowBase {
-}
+export class FormFactorsRow extends _FormFactorsRowBase {}
 
 ReferenceData.register(FormFactorsRow);

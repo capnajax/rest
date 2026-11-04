@@ -4,5 +4,4 @@
 
 import { _BylinesRowBase } from '../generated/_bylines-row-base.js';
 
-export class BylinesRow extends _BylinesRowBase {
-}
+export class BylinesRow extends _BylinesRowBase {}

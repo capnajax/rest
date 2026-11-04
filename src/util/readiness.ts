@@ -37,9 +37,10 @@ export function registerToken(token: string): void {
  *  false for failure)
  * @returns the outcome of the token
  */
-export function completeToken(token: string, isSuccessful: boolean = true)
-: boolean {
-
+export function completeToken(
+  token: string,
+  isSuccessful: boolean = true
+): boolean {
   if (resolvedTokens.has(token)) {
     throw new Error(`Token "${token}" has already been successfully completed`);
   }
@@ -108,5 +109,3 @@ export function getOutstandingTokens(): string[] {
 export function getFailedTokens(): string[] {
   return Array.from(failedTokens);
 }
-
-

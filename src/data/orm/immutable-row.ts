@@ -69,7 +69,9 @@ export abstract class ImmutableRow {
   getValue(columnName: string): any {
     const col = this._columns.get(columnName);
     if (!col) {
-      throw new Error(`Column ${columnName} does not exist on ${this.constructor.name}`);
+      throw new Error(
+        `Column ${columnName} does not exist on ${this.constructor.name}`
+      );
     }
     return col.value;
   }

@@ -11,8 +11,7 @@ function isJsonText(value: unknown): boolean {
   }
 }
 
-const isString = (value: unknown): value is string =>
-  typeof value === 'string';
+const isString = (value: unknown): value is string => typeof value === 'string';
 
 const isValidDate = (value: unknown): boolean => {
   if (!isString(value) || value.length === 0) return false;
@@ -25,21 +24,20 @@ const isValidDate = (value: unknown): boolean => {
 
 type Validator = typeof import('fast-xml-validator').SyntaxValidator;
 let syntaxValidator: Validator | null | undefined; // undefined = loading
-const xmlValidatorReady: Promise<void> =
-  import('fast-xml-validator').then(
-    (module) => {
-      syntaxValidator = module.SyntaxValidator;
-    },
-    () => {
-      syntaxValidator = null;
-    }
-  );
+const xmlValidatorReady: Promise<void> = import('fast-xml-validator').then(
+  (module) => {
+    syntaxValidator = module.SyntaxValidator;
+  },
+  () => {
+    syntaxValidator = null;
+  }
+);
 
 const isXmlText = (value: unknown): boolean => {
-  if (typeof value !== "string") return false;
+  if (typeof value !== 'string') return false;
 
   if (syntaxValidator === undefined) {
-    throw new Error("XML validator is still loading");
+    throw new Error('XML validator is still loading');
   }
   if (syntaxValidator === null) {
     throw new Error("'fast-xml-validator' is not available");
@@ -49,30 +47,22 @@ const isXmlText = (value: unknown): boolean => {
 // Await this as part of application startup:
 await xmlValidatorReady;
 
-const pgTypeValidators: Record<string, (v: unknown)=>boolean> = {
+const pgTypeValidators: Record<string, (v: unknown) => boolean> = {
   // UUID syntax. This checks the conventional 8-4-4-4-12 hexadecimal form.
   uuid: (v) =>
-    isString(v) &&
-    /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(v),
+    isString(v) && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(v),
 
   // inet accepts an IP address, optionally with a prefix length.
-  inet: (v) =>
-    isString(v) &&
-    (ipaddr.isValid(v) || ipaddr.isValidCIDR(v)),
+  inet: (v) => isString(v) && (ipaddr.isValid(v) || ipaddr.isValidCIDR(v)),
 
   // cidr requires an IP address with a prefix length.
-  cidr: (v) =>
-    isString(v) &&
-    ipaddr.isValidCIDR(v),
+  cidr: (v) => isString(v) && ipaddr.isValidCIDR(v),
 
   // PostgreSQL macaddr is 6 bytes; macaddr8 is 8 bytes.
-  macaddr: (v) =>
-    isString(v) &&
-    /^(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(v),
+  macaddr: (v) => isString(v) && /^(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(v),
 
   macaddr8: (v) =>
-    isString(v) &&
-    /^(?:[0-9a-f]{2}[:-]){7}[0-9a-f]{2}$/i.test(v),
+    isString(v) && /^(?:[0-9a-f]{2}[:-]){7}[0-9a-f]{2}$/i.test(v),
 
   date: isValidDate,
 
@@ -81,9 +71,7 @@ const pgTypeValidators: Record<string, (v: unknown)=>boolean> = {
   timestamptz: isValidDate,
 
   // Basic time syntax with optional fractional seconds and timezone.
-  time: (v) =>
-    isString(v) &&
-    /^\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(v),
+  time: (v) => isString(v) && /^\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(v),
 
   timetz: (v) =>
     isString(v) &&
@@ -96,7 +84,7 @@ const pgTypeValidators: Record<string, (v: unknown)=>boolean> = {
   jsonb: isJsonText,
 
   // This checks well-formed XML, not validity against a schema/DTD.
-  xml: isXmlText
+  xml: isXmlText,
 };
 
 type BufferFromArgs =
@@ -115,8 +103,7 @@ function isBufferFromArgs(value: unknown): value is BufferFromArgs {
       (value.length === 1 ||
         (value.length === 2 &&
           (second === undefined ||
-            (typeof second === 'string' &&
-              Buffer.isEncoding(second)))))) ||
+            (typeof second === 'string' && Buffer.isEncoding(second)))))) ||
     (value.length === 1 &&
       first !== null &&
       typeof first === 'object' &&
@@ -129,8 +116,7 @@ function isBufferFromArgs(value: unknown): value is BufferFromArgs {
         (value.length === 2 && Number.isInteger(second)) ||
         (value.length === 3 &&
           Number.isInteger(second) &&
-          Number.isInteger(third)))
-    )
+          Number.isInteger(third))))
   );
 }
 
@@ -147,11 +133,7 @@ function isValidDateValue(value: unknown): boolean {
   }
 }
 
-function isIntegerInRange(
-  value: unknown,
-  min: number,
-  max: number
-): boolean {
+function isIntegerInRange(value: unknown, min: number, max: number): boolean {
   return (
     typeof value === 'number' &&
     Number.isInteger(value) &&
@@ -166,37 +148,37 @@ const integerValidators: Record<string, (value: unknown) => boolean> = {
   int4: (v) => isIntegerInRange(v, -2_147_483_648, 2_147_483_647),
   smallint: (v) => isIntegerInRange(v, -32_768, 32_767),
   int2: (v) => isIntegerInRange(v, -32_768, 32_767),
-  oid: (v) => isIntegerInRange(v, 0, 4_294_967_295)
+  oid: (v) => isIntegerInRange(v, 0, 4_294_967_295),
 };
 
 const numberValidators: Record<string, (value: unknown) => boolean> = {
   real: (v) => typeof v === 'number' && Number.isFinite(v),
   float4: (v) => typeof v === 'number' && Number.isFinite(v),
   'double precision': (v) => typeof v === 'number' && Number.isFinite(v),
-  float8: (v) => typeof v === 'number' && Number.isFinite(v)
+  float8: (v) => typeof v === 'number' && Number.isFinite(v),
 };
 
 const bigintValidators: Record<string, (value: unknown) => boolean> = {
   bigint: (v) =>
-    typeof v === 'bigint' ||
-    (typeof v === 'string' && /^[+-]?\d+$/.test(v)),
+    typeof v === 'bigint' || (typeof v === 'string' && /^[+-]?\d+$/.test(v)),
   int8: (v) =>
-    typeof v === 'bigint' ||
-    (typeof v === 'string' && /^[+-]?\d+$/.test(v))
+    typeof v === 'bigint' || (typeof v === 'string' && /^[+-]?\d+$/.test(v)),
 };
 
 const numericValidators: Record<string, (value: unknown) => boolean> = {
   numeric: (v) =>
     (typeof v === 'number' && Number.isFinite(v)) ||
-    (typeof v === 'string' && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(v)),
+    (typeof v === 'string' &&
+      /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(v)),
   decimal: (v) =>
     (typeof v === 'number' && Number.isFinite(v)) ||
-    (typeof v === 'string' && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(v))
+    (typeof v === 'string' &&
+      /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(v)),
 };
 
 const booleanValidators: Record<string, (value: unknown) => boolean> = {
   boolean: (v) => typeof v === 'boolean',
-  bool: (v) => typeof v === 'boolean'
+  bool: (v) => typeof v === 'boolean',
 };
 
 const stringValidators: Record<string, (value: unknown) => boolean> = {
@@ -216,7 +198,7 @@ const stringValidators: Record<string, (value: unknown) => boolean> = {
   tsvector: isString,
   tsquery: isString,
   bit: isString,
-  varbit: isString
+  varbit: isString,
 };
 
 const dateValidators: Record<string, (value: unknown) => boolean> = {
@@ -225,7 +207,7 @@ const dateValidators: Record<string, (value: unknown) => boolean> = {
   timestamptz: isValidDateValue,
   time: isString,
   timetz: isString,
-  interval: isString
+  interval: isString,
 };
 
 const pgValueValidators: Record<string, (value: unknown) => boolean> = {
@@ -240,7 +222,7 @@ const pgValueValidators: Record<string, (value: unknown) => boolean> = {
   bytea: (v) =>
     Buffer.isBuffer(v) ||
     typeof v === 'string' ||
-    (isBufferFromArgs(v) && isBufferArgsUsable(v))
+    (isBufferFromArgs(v) && isBufferArgsUsable(v)),
 };
 
 function isBufferArgsUsable(args: BufferFromArgs): boolean {
@@ -296,8 +278,9 @@ export function assertValidPGParameterValue(
 ): asserts value is unknown {
   if (!isValidPGParameterValue(type, value)) {
     throw new TypeError(
-      `Invalid value for PostgreSQL parameter type "${type}": ${
-        JSON.stringify(value)}`
+      `Invalid value for PostgreSQL parameter type "${type}": ${JSON.stringify(
+        value
+      )}`
     );
   }
 }

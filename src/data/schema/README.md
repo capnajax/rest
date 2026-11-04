@@ -4,7 +4,7 @@ This sets up the databases for the blog app
 
 ## `.sql` files
 
-These files have a specific naming convention: `<version>/<db><sequence>-<purpose>.sql`. 
+These files have a specific naming convention: `<version>/<db><sequence>-<purpose>.sql`.
 
 The `version` is a folder with a three-digit version number that must parse to an integer. The versions are applied in order.
 

@@ -1,15 +1,17 @@
-
 import {
   RoleInfoCalculator,
   EndpointMetaRoles,
-  AppMeta
+  AppMeta,
 } from './meta-types.js';
 
-type RoleParameterType = string | RoleInfoCalculator |
-  (Partial<EndpointMetaRoles>) | ((string|RoleInfoCalculator)[]);
+type RoleParameterType =
+  | string
+  | RoleInfoCalculator
+  | Partial<EndpointMetaRoles>
+  | (string | RoleInfoCalculator)[];
 function normalizeRoles(...roles: RoleParameterType[]): EndpointMetaRoles {
   const normalizedRoles: EndpointMetaRoles = {
-    endpoint: []
+    endpoint: [],
   };
   for (const role of roles) {
     if (typeof role === 'string') {
@@ -45,7 +47,7 @@ function normalizeRoles(...roles: RoleParameterType[]): EndpointMetaRoles {
 
 /**
  * Creates a metadata preset for role-based access control
- * @param roles 
+ * @param roles
  * @returns A partial AppMeta object with the specified roles
  */
 export const roleBased = function roleBased(
@@ -54,7 +56,7 @@ export const roleBased = function roleBased(
   return {
     requiresAuth: true,
     roles: {
-      ...normalizeRoles(...roles)
-    }
-  }
+      ...normalizeRoles(...roles),
+    },
+  };
 };

@@ -1,35 +1,47 @@
 import { testOp } from './operators.js';
 
 const pbNumberParameterTypesEnum = [
-  'int', 'integer', 'int4',
-  'smallint', 'int2',
-  'real', 'float4',
-  'double precision', 'float8',  // the space is `double precision` is valid
-  'oid'
+  'int',
+  'integer',
+  'int4',
+  'smallint',
+  'int2',
+  'real',
+  'float4',
+  'double precision',
+  'float8', // the space is `double precision` is valid
+  'oid',
 ] as const;
-const pbNumericOrStringParameterTypesEnum = [
-  'numeric', 'decimal'
-] as const;
-const pbBigIntParameterTypesEnum = [
-  'bigint', 'int8'
-] as const;
+const pbNumericOrStringParameterTypesEnum = ['numeric', 'decimal'] as const;
+const pbBigIntParameterTypesEnum = ['bigint', 'int8'] as const;
 const pbStringParameterTypesEnum = [
-  'text', 'varchar', 'character varying', 'name', // the space is valid
+  'text',
+  'varchar',
+  'character varying',
+  'name', // the space is valid
   'uuid',
-  'inet', 'cidr', 'macaddr', 'macaddr8',
-  'money', 'xml', 'json', 'jsonb',
-  'tsvector', 'tsquery',
-  'bit', 'varbit'
+  'inet',
+  'cidr',
+  'macaddr',
+  'macaddr8',
+  'money',
+  'xml',
+  'json',
+  'jsonb',
+  'tsvector',
+  'tsquery',
+  'bit',
+  'varbit',
 ] as const;
-const pbBooleanParameterTypesEnum = [
-  'boolean', 'bool'
-] as const;
-const pbBufferParameterTypesEnum = [
-  'bytea'
-] as const;
+const pbBooleanParameterTypesEnum = ['boolean', 'bool'] as const;
+const pbBufferParameterTypesEnum = ['bytea'] as const;
 const pbDateParameterTypesEnum = [
-  'date', 'timestamp', 'timestamptz',
-  'time', 'timetz', 'interval'
+  'date',
+  'timestamp',
+  'timestamptz',
+  'time',
+  'timetz',
+  'interval',
 ] as const;
 
 const pgParameterTypesEnum = [
@@ -39,10 +51,10 @@ const pgParameterTypesEnum = [
   ...pbStringParameterTypesEnum,
   ...pbBooleanParameterTypesEnum,
   ...pbBufferParameterTypesEnum,
-  ...pbDateParameterTypesEnum
+  ...pbDateParameterTypesEnum,
 ] as const;
 
-export const pgParameterTypes = pgParameterTypesEnum.map(t => t as string);
+export const pgParameterTypes = pgParameterTypesEnum.map((t) => t as string);
 export type PGParameterType = (typeof pgParameterTypesEnum)[number];
 /**
  * Narrows a value to a PostgreSQL parameter type supported by this module.
@@ -75,7 +87,7 @@ export type PGParameterTypeToTS = {
   smallint: number;
   int2: number;
   // numeric
-  numeric: string;          // use string to avoid float precision loss
+  numeric: string; // use string to avoid float precision loss
   decimal: string;
   real: number;
   float4: number;
@@ -90,9 +102,9 @@ export type PGParameterTypeToTS = {
   uuid: string;
   oid: number;
   // date/time
-  date: string|Date;
-  timestamp: string|Date;
-  timestamptz: string|Date;
+  date: string | Date;
+  timestamp: string | Date;
+  timestamptz: string | Date;
   time: string;
   timetz: string;
   interval: string;

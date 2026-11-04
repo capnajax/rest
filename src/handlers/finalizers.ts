@@ -23,7 +23,8 @@ function logRequest(req: any, res: any) {
     durationMs: duration,
   };
 
-  const logDataStr = `${logData.method} ${logData.url} - ` +
+  const logDataStr =
+    `${logData.method} ${logData.url} - ` +
     `${logData.statusCode} (${logData.durationMs}ms)`;
 
   log.info(logDataStr);

@@ -10,37 +10,37 @@ A lightweight, hand-rolled data layer for PostgreSQL. No third-party ORM depende
 
 Every scalar column on a row is wrapped in a `Column<T>` instance. The column tracks three states internally using an `UNSET` sentinel symbol:
 
-| State | Meaning |
-| --- | --- |
+| State   | Meaning                                                                            |
+| ------- | ---------------------------------------------------------------------------------- |
 | `UNSET` | Column was not included in the `SELECT`, or is on a new row with no value assigned |
-| `null` | Column was loaded and its database value is `NULL` |
-| `T` | Column was loaded and has a value |
+| `null`  | Column was loaded and its database value is `NULL`                                 |
+| `T`     | Column was loaded and has a value                                                  |
 
 This makes `null` (a real database value) unambiguous from "not loaded". Accessing `.value` on an unloaded column throws immediately rather than silently returning `undefined`.
 
 ```typescript
-row.body.isLoaded   // false if column was not in the SELECT
-row.body.value      // throws if not loaded
-row.body.isDirty    // true if current value differs from original
-row.body.original   // the value as it came from the DB
+row.body.isLoaded; // false if column was not in the SELECT
+row.body.value; // throws if not loaded
+row.body.isDirty; // true if current value differs from original
+row.body.original; // the value as it came from the DB
 ```
 
 Setting a value always succeeds and marks the column dirty:
 
 ```typescript
-row.title.value = 'New title'  // marks dirty
-row.isDirty()                  // true
+row.title.value = 'New title'; // marks dirty
+row.isDirty(); // true
 ```
 
 ### Partial loading
 
 Queries only need to load the columns they need. Unloaded columns stay `UNSET`. The three named column sets provide a consistent API:
 
-| Method | Scalar columns | Array relationships |
-| --- | --- | --- |
-| `loadSummary()` | `id`, `name`, `title`, `created_at` | never |
-| `loadSimple()` | all scalars | those marked `loadWith: simple` |
-| `loadAll()` | all scalars | all relationships |
+| Method          | Scalar columns                      | Array relationships             |
+| --------------- | ----------------------------------- | ------------------------------- |
+| `loadSummary()` | `id`, `name`, `title`, `created_at` | never                           |
+| `loadSimple()`  | all scalars                         | those marked `loadWith: simple` |
+| `loadAll()`     | all scalars                         | all relationships               |
 
 `summary` columns are fixed by convention. `simple` is the default for most operations. `all` is explicit when you need heavy data (media, attachments, etc.).
 
@@ -115,11 +115,11 @@ resolve reference getters automatically, but must explicitly load dynamic target
 Related rows are held in `RelationshipArray<T>`, which tracks additions and removals explicitly:
 
 ```typescript
-article.tags?.add(tag)     // adds to pending changes
-article.tags?.remove(tag)  // removes from pending changes
-article.tags?.isDirty      // true if changed since load
-article.tags?.added        // rows added since load
-article.tags?.removed      // rows removed since load
+article.tags?.add(tag); // adds to pending changes
+article.tags?.remove(tag); // removes from pending changes
+article.tags?.isDirty; // true if changed since load
+article.tags?.added; // rows added since load
+article.tags?.removed; // rows removed since load
 ```
 
 Mutations are explicit — no array index interception. This keeps tracking predictable.
@@ -140,10 +140,10 @@ The base for all generated editable row classes. Provides:
 
 **save() behaviour by relationship kind:**
 
-| Relationship | Added item (new) | Added item (existing) | Removed item |
-| --- | --- | --- | --- |
-| Direct FK | INSERT child, set FK | UPDATE child if dirty | DELETE child row |
-| Link table | INSERT related row + link | INSERT link only | DELETE link only |
+| Relationship | Added item (new)          | Added item (existing) | Removed item     |
+| ------------ | ------------------------- | --------------------- | ---------------- |
+| Direct FK    | INSERT child, set FK      | UPDATE child if dirty | DELETE child row |
+| Link table   | INSERT related row + link | INSERT link only      | DELETE link only |
 
 ### `ImmutableRow` (reference tables)
 
@@ -161,8 +161,8 @@ await ReferenceData.initialize();
 
 // Anywhere in the application
 const statuses = ReferenceData.all(StatusRow);
-const draft    = ReferenceData.byName(StatusRow, 'draft');
-const status   = ReferenceData.byId(StatusRow, 3);
+const draft = ReferenceData.byName(StatusRow, 'draft');
+const status = ReferenceData.byId(StatusRow, 3);
 ```
 
 `ReferenceData.initialize()` queries every registered reference table. Public reference-table row modules call `ReferenceData.register()` at module load time. Import the generated barrel before initialization to register every public reference row class. The snapshot contains instances of those public classes, including their custom methods.
@@ -246,7 +246,7 @@ import { inTransaction } from '../query.js';
 await inTransaction(async (conn) => {
   await article.save(conn);
   await audit.save(conn);
-  return 'success';  // Optional return value
+  return 'success'; // Optional return value
 });
 ```
 
@@ -279,7 +279,7 @@ Alternatively, create a new instance, set the primary key, and call a load metho
 ```typescript
 const article = new ArticlesRow();
 article.id.value = 123;
-await article.loadSimple();  // Loads scalar columns + simple relationships
+await article.loadSimple(); // Loads scalar columns + simple relationships
 // or await article.loadAll();  // Loads everything
 ```
 
@@ -292,7 +292,7 @@ import { sqlQuery } from '../query.js';
 
 // Load all articles
 const result = await sqlQuery('SELECT * FROM articles');
-const articles = result.rows.map(row => {
+const articles = result.rows.map((row) => {
   const article = new ArticlesRow();
   article._hydrate(row);
   article._markLoaded();
@@ -330,7 +330,7 @@ const newArticle = new ArticlesRow({
   title: 'My New Article',
   author_id: 1,
   content_type_id: 1,
-  uuid: 'unique-uuid-here'
+  uuid: 'unique-uuid-here',
 });
 
 // Values are set but marked as dirty (will be included in INSERT)
@@ -353,11 +353,11 @@ existingArticle.assumeClean('title', 'Existing Title');
 existingArticle.assumeClean('author_id', 1);
 
 // Load any additional data you need
-await existingArticle.loadSimple();  // Loads remaining columns + relationships
+await existingArticle.loadSimple(); // Loads remaining columns + relationships
 
 // Now you can modify and save
-existingArticle.title.value = 'Updated Title';  // This will be dirty
-await existingArticle.save();  // Performs UPDATE only for changed columns
+existingArticle.title.value = 'Updated Title'; // This will be dirty
+await existingArticle.save(); // Performs UPDATE only for changed columns
 ```
 
 Alternatively, you can work directly with column objects:
@@ -365,7 +365,7 @@ Alternatively, you can work directly with column objects:
 ```typescript
 const existingArticle = new ArticlesRow();
 existingArticle.id.value = 123;
-existingArticle.title.assumeClean('Existing Title');  // Direct column access
+existingArticle.title.assumeClean('Existing Title'); // Direct column access
 await existingArticle.loadSimple();
 ```
 
@@ -374,11 +374,11 @@ Or initialize with known values from the database:
 ```typescript
 // If you have data from a previous query or cache
 const dbData = { id: 123, title: 'Existing Title', author_id: 1 };
-const existingArticle = new ArticlesRow(dbData, true);  // true = assume from DB
+const existingArticle = new ArticlesRow(dbData, true); // true = assume from DB
 
 // Row is marked as loaded, values are clean
 // Load any additional data you need
-await existingArticle.loadSimple();  // Loads remaining columns + relationships
+await existingArticle.loadSimple(); // Loads remaining columns + relationships
 ```
 
 Note: For existing rows, it's often more convenient to use `findById()` which handles the loading in one step. Use these approaches when you want to avoid loading data you already know.
@@ -395,7 +395,7 @@ const article = new ArticlesRow({ title: 'Valid Title' });
 const article = new ArticlesRow({ id: 'not-a-number' }, true);
 
 // Type validation happens during hydration from database queries too
-await article.loadSimple();  // Validates all loaded column types
+await article.loadSimple(); // Validates all loaded column types
 ```
 
 ### Supported Types
@@ -403,7 +403,7 @@ await article.loadSimple();  // Validates all loaded column types
 The ORM validates these TypeScript types at runtime:
 
 - `number` - validates numeric values (not NaN)
-- `string` - validates string values  
+- `string` - validates string values
 - `boolean` - validates boolean values
 - `Date` - validates Date instances
 - `Record<string, unknown>` - validates plain objects (not arrays or null)

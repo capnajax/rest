@@ -14,12 +14,12 @@ interface Query {
 }
 
 export interface QueryOptions {
-  connection: PoolClient,
+  connection: PoolClient;
   /**
    * Set to true if sending a query string instead of a reference to a query
    * in the queries.yaml file or there will be a warning in the logs.
    */
-  allowHardcoded?: boolean
+  allowHardcoded?: boolean;
 }
 
 /**
@@ -30,7 +30,7 @@ export interface QueryOptions {
  * - An SQL string
  */
 interface QueryNode {
-  [key: string]: string|Query|QueryNode;
+  [key: string]: string | Query | QueryNode;
 }
 
 /**
@@ -44,7 +44,8 @@ type QueryBook = QueryNode;
  */
 function isQuery(value: any): value is Query {
   return (
-    typeof value === 'object' && value !== null &&
+    typeof value === 'object' &&
+    value !== null &&
     (!('description' in value) || typeof value.description === 'string') &&
     'query' in value &&
     typeof value.query === 'string'
@@ -55,27 +56,32 @@ function isQuery(value: any): value is Query {
  * Type guard for QueryNode
  * @param value: the value to test if a QueryNode
  */
-function isQueryNode(value: any, ..._circularCheck:QueryNode[])
-: value is QueryNode {
-  return typeof value === 'object' && value !== null &&
-    Object.values(value).every((v:any) => {
-      return typeof v === 'string' ||
-        isQuery(v) || 
-        ( !(_circularCheck.includes(v)) &&
-          isQueryNode(v, value, ..._circularCheck)
-        );
-    });
+function isQueryNode(
+  value: any,
+  ..._circularCheck: QueryNode[]
+): value is QueryNode {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Object.values(value).every((v: any) => {
+      return (
+        typeof v === 'string' ||
+        isQuery(v) ||
+        (!_circularCheck.includes(v) &&
+          isQueryNode(v, value, ..._circularCheck))
+      );
+    })
+  );
 }
 
 let pools: Record<string, Pool> = {};
 
 function getPool(): Pool {
-
   const urlArg = parsedArgs.dbUrl;
   if (!urlArg) {
     throw new Error(
       'DATABASE_URL is not set. Ensure parseArgs() is called before ' +
-      'any DB queries.'
+        'any DB queries.'
     );
   }
 
@@ -87,7 +93,7 @@ function getPool(): Pool {
 }
 
 // Cache for parsed queries
-let queryBook:{[key: string]:Query}|null = null;
+let queryBook: { [key: string]: Query } | null = null;
 
 /**
  * Validate a QueryNode recursively
@@ -120,7 +126,6 @@ function validateQueryNode(node: any, path: string = 'QueryBook'): void {
  * Load and parse the queries.yaml file
  */
 async function loadQueries(): Promise<QueryBook> {
-
   if (queryBook) {
     return Promise.resolve(queryBook);
   }
@@ -138,17 +143,17 @@ async function loadQueries(): Promise<QueryBook> {
 
   try {
     validateQueryNode(parsed.queries);
-  } catch(reason) {
+  } catch (reason) {
     completeToken(token, false);
     throw reason;
   }
 
-  const flattened:{[key: string]:Query} = Object.create(null);
+  const flattened: { [key: string]: Query } = Object.create(null);
   const unroll = (node: QueryNode, prefix: string): void => {
     for (const [key, value] of Object.entries(node)) {
       const queryPath = prefix ? `${prefix}.${key}` : key;
       if (typeof value === 'string') {
-        flattened[queryPath] = {query:value};
+        flattened[queryPath] = { query: value };
       } else if (isQuery(value)) {
         flattened[queryPath] = value;
       } else {
@@ -165,7 +170,7 @@ async function loadQueries(): Promise<QueryBook> {
 /**
  * Get a connection from the pool
  */
-export async function getConnection():Promise<PoolClient> {
+export async function getConnection(): Promise<PoolClient> {
   return getPool().connect();
 }
 
@@ -181,18 +186,17 @@ export function returnConnection(connection: PoolClient): void {
  * Example: getQuery('users.auth.login')
  */
 export function getQuery(path: string): Query {
-
   if (queryBook === null) {
     throw new Error(`Queries not loaded yet`);
   }
 
-  const query:unknown = queryBook[path];
+  const query: unknown = queryBook[path];
   if (!query) {
     throw new Error(`Query "${path}" does not exist`);
   } else if (isQuery(query)) {
     return query;
   } else if (typeof query === 'string') {
-    return {query};
+    return { query };
   } else {
     throw new Error(`Unknown query type in path "${path}"`);
   }
@@ -204,12 +208,12 @@ export function getQuery(path: string): Query {
  */
 export async function queryWithConnection(
   options: QueryOptions,
-  query: string|Query,
+  query: string | Query,
   parameters: unknown[] = []
 ): Promise<QueryResult> {
   const log = getLogger(MODULE, 'queryWithConnection');
   const connection = options.connection;
-  let sql!:string;
+  let sql!: string;
   if (isQuery(query)) {
     sql = query.query;
   } else {
@@ -217,7 +221,8 @@ export async function queryWithConnection(
       query = getQuery(query).query;
     } else if (options.allowHardcoded !== true) {
       log.warn(
-        'Hard-coded query or incorrectly-formatted query path "%s"', query
+        'Hard-coded query or incorrectly-formatted query path "%s"',
+        query
       );
       console.log('query:', query);
       console.log('options.allowHardcoded:', options.allowHardcoded);
@@ -248,7 +253,7 @@ export async function query(
   const connection = await getConnection();
 
   try {
-    const result = await queryWithConnection({connection}, sql, parameters);
+    const result = await queryWithConnection({ connection }, sql, parameters);
     return resultToArray(result);
   } finally {
     returnConnection(connection);
@@ -266,11 +271,15 @@ export async function sqlQuery(
   connectionOrDb?: PoolClient
 ): Promise<QueryResult> {
   if (connectionOrDb) {
-    return queryWithConnection({connection: connectionOrDb}, sql, parameters);
+    return queryWithConnection({ connection: connectionOrDb }, sql, parameters);
   } else {
     const conn = await getConnection();
     try {
-      return queryWithConnection({connection: conn}, {query: sql}, parameters);
+      return queryWithConnection(
+        { connection: conn },
+        { query: sql },
+        parameters
+      );
     } finally {
       returnConnection(conn);
     }
@@ -298,9 +307,9 @@ export async function inTransaction<T>(
   callback: (connection: PoolClient) => Promise<T>
 ): Promise<T> {
   const conn = await getConnection();
-  
+
   await conn.query('BEGIN');
-  
+
   try {
     const result = await callback(conn);
     await conn.query('COMMIT');

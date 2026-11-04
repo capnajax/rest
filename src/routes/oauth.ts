@@ -46,13 +46,13 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
     if (!req.context.body) {
       res.status(400).json({
         error: 'invalid_request',
-        error_description: 'empty request body'
+        error_description: 'empty request body',
       });
       return;
     }
 
     try {
-      const body = await req.context.body() as Partial<TokenRequest>;
+      const body = (await req.context.body()) as Partial<TokenRequest>;
       const grantType = body.grant_type;
 
       log.debug('Token request:', { grant_type: grantType });
@@ -64,13 +64,13 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
 
       res.json({
         error: 'not_implemented',
-        error_description: 'Token endpoint not yet implemented'
+        error_description: 'Token endpoint not yet implemented',
       });
     } catch (err) {
       log.error('Token request error:', err);
       res.status(400).json({
         error: 'invalid_request',
-        error_description: (err as Error).message
+        error_description: (err as Error).message,
       });
     }
   });
@@ -100,13 +100,13 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
     if (!req.context.body) {
       res.status(400).json({
         error: 'invalid_request',
-        error_description: 'empty request body'
+        error_description: 'empty request body',
       });
       return;
     }
 
     try {
-      const body = await req.context.body() as {
+      const body = (await req.context.body()) as {
         token?: string;
         token_type_hint?: string;
       };
@@ -115,11 +115,13 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
       if (!token) {
         return res.status(400).json({
           error: 'invalid_request',
-          error_description: 'token parameter is required'
+          error_description: 'token parameter is required',
         });
       }
 
-      log.debug('Revoke request for token:', { token: token.substring(0, 10) + '...' });
+      log.debug('Revoke request for token:', {
+        token: token.substring(0, 10) + '...',
+      });
 
       // TODO: Determine realm from token or context
       // TODO: Get provider from registry
@@ -130,7 +132,7 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
       log.error('Revoke request error:', err);
       res.status(400).json({
         error: 'invalid_request',
-        error_description: (err as Error).message
+        error_description: (err as Error).message,
       });
     }
   });
@@ -162,13 +164,13 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
     if (!req.context.body) {
       res.status(400).json({
         error: 'invalid_request',
-        error_description: 'empty request body'
+        error_description: 'empty request body',
       });
       return;
     }
 
     try {
-      const body = await req.context.body() as {
+      const body = (await req.context.body()) as {
         token?: string;
         token_type_hint?: string;
       };
@@ -177,12 +179,12 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
       if (!token) {
         return res.status(400).json({
           error: 'invalid_request',
-          error_description: 'token parameter is required'
+          error_description: 'token parameter is required',
         });
       }
 
       log.debug('Introspect request for token:', {
-        token: token.substring(0, 10) + '...'
+        token: token.substring(0, 10) + '...',
       });
 
       // TODO: Determine realm from token or context
@@ -195,7 +197,7 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
       log.error('Introspect request error:', err);
       res.status(400).json({
         error: 'invalid_request',
-        error_description: (err as Error).message
+        error_description: (err as Error).message,
       });
     }
   });
@@ -228,20 +230,20 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
       if (!authHeader) {
         return res.status(401).json({
           error: 'invalid_request',
-          error_description: 'Missing Authorization header'
+          error_description: 'Missing Authorization header',
         });
       }
       if (!authHeader.startsWith('Bearer ')) {
         return res.status(401).json({
           error: 'invalid_request',
-          error_description: 'Missing or invalid Authorization header'
+          error_description: 'Missing or invalid Authorization header',
         });
       }
 
       const token = authHeader.substring(7);
 
       log.debug('UserInfo request with token:', {
-        token: token.substring(0, 10) + '...'
+        token: token.substring(0, 10) + '...',
       });
 
       // TODO: Determine realm from token or context
@@ -249,14 +251,14 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
       // TODO: Call provider.getUserInfo()
 
       res.json({
-        sub: 'user_id_stub'
+        sub: 'user_id_stub',
         // TODO: Add user fields from provider
       });
     } catch (err) {
       log.error('UserInfo request error:', err);
       res.status(401).json({
         error: 'invalid_token',
-        error_description: (err as Error).message
+        error_description: (err as Error).message,
       });
     }
   });
@@ -301,14 +303,14 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
       log.debug('Authorization request:', {
         client_id: clientId,
         redirect_uri: redirectUri,
-        response_type: responseType
+        response_type: responseType,
       });
 
       if (!clientId || !redirectUri || responseType !== 'code') {
         return res.status(400).json({
           error: 'invalid_request',
           error_description:
-            'Missing required parameters: client_id, redirect_uri, response_type=code'
+            'Missing required parameters: client_id, redirect_uri, response_type=code',
         });
       }
 
@@ -319,13 +321,13 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
 
       res.status(400).json({
         error: 'not_implemented',
-        error_description: 'Authorization endpoint not yet implemented'
+        error_description: 'Authorization endpoint not yet implemented',
       });
     } catch (err) {
       log.error('Authorization request error:', err);
       res.status(400).json({
         error: 'invalid_request',
-        error_description: (err as Error).message
+        error_description: (err as Error).message,
       });
     }
   });
@@ -357,7 +359,7 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
       log.error('JWKS request error:', err);
       res.status(500).json({
         error: 'server_error',
-        error_description: (err as Error).message
+        error_description: (err as Error).message,
       });
     }
   });
@@ -376,36 +378,40 @@ export function oauthRoutes(app: Application<AppMeta, Context>) {
    *   - Call provider.getOIDCMetadata(baseUrl)
    *   - Return discovery document
    */
-  ctx.get('/.well-known/openid-configuration', SESSIONLESS, async (req, res) => {
-    const log = getLogger(MODULE, 'GET', '/.well-known/openid-configuration');
+  ctx.get(
+    '/.well-known/openid-configuration',
+    SESSIONLESS,
+    async (req, res) => {
+      const log = getLogger(MODULE, 'GET', '/.well-known/openid-configuration');
 
-    try {
-      const baseUrl = appConfig().app.global.baseUrl;
+      try {
+        const baseUrl = appConfig().app.global.baseUrl;
 
-      log.debug('OIDC discovery request from:', { baseUrl });
+        log.debug('OIDC discovery request from:', { baseUrl });
 
-      // TODO: Determine realm
-      // TODO: Get provider from registry
-      // TODO: Call provider.getOIDCMetadata(baseUrl)
+        // TODO: Determine realm
+        // TODO: Get provider from registry
+        // TODO: Call provider.getOIDCMetadata(baseUrl)
 
-      res.json({
-        issuer: baseUrl,
-        authorization_endpoint: `${baseUrl}/v3/oauth/authorize`,
-        token_endpoint: `${baseUrl}/v3/oauth/token`,
-        userinfo_endpoint: `${baseUrl}/v3/oauth/userinfo`,
-        jwks_uri: `${baseUrl}/v3/oauth/jwks`,
-        scopes_supported: ['openid', 'profile'],
-        response_types_supported: ['code'],
-        grant_types_supported: ['authorization_code', 'refresh_token']
-      });
-    } catch (err) {
-      log.error('OIDC discovery error:', err);
-      res.status(500).json({
-        error: 'server_error',
-        error_description: (err as Error).message
-      });
+        res.json({
+          issuer: baseUrl,
+          authorization_endpoint: `${baseUrl}/v3/oauth/authorize`,
+          token_endpoint: `${baseUrl}/v3/oauth/token`,
+          userinfo_endpoint: `${baseUrl}/v3/oauth/userinfo`,
+          jwks_uri: `${baseUrl}/v3/oauth/jwks`,
+          scopes_supported: ['openid', 'profile'],
+          response_types_supported: ['code'],
+          grant_types_supported: ['authorization_code', 'refresh_token'],
+        });
+      } catch (err) {
+        log.error('OIDC discovery error:', err);
+        res.status(500).json({
+          error: 'server_error',
+          error_description: (err as Error).message,
+        });
+      }
     }
-  });
+  );
 
   log.info('OAuth routes registered');
 }

@@ -13,7 +13,10 @@ type MutableRowConstructor = new () => MutableRow;
  */
 const registry = new Map<string, MutableRowConstructor>();
 
-export function registerRow(tableName: string, ctor: MutableRowConstructor): void {
+export function registerRow(
+  tableName: string,
+  ctor: MutableRowConstructor
+): void {
   registry.set(tableName, ctor);
 }
 
@@ -22,7 +25,7 @@ export function getRowClass(tableName: string): MutableRowConstructor {
   if (!ctor) {
     throw new Error(
       `No row class registered for table '${tableName}'. ` +
-      `Ensure the generated file for this table is imported before queries run.`
+        `Ensure the generated file for this table is imported before queries run.`
     );
   }
   return ctor;

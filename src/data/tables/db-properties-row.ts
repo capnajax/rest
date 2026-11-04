@@ -6,7 +6,6 @@
 import { _DbPropertiesRowBase } from '../generated/_db-properties-row-base.js';
 import { ReferenceData } from '../orm/reference-data.js';
 
-export class DbPropertiesRow extends _DbPropertiesRowBase {
-}
+export class DbPropertiesRow extends _DbPropertiesRowBase {}
 
 ReferenceData.register(DbPropertiesRow);

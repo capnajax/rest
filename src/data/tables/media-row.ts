@@ -4,5 +4,4 @@
 
 import { _MediaRowBase } from '../generated/_media-row-base.js';
 
-export class MediaRow extends _MediaRowBase {
-}
+export class MediaRow extends _MediaRowBase {}

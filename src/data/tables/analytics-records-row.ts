@@ -4,5 +4,4 @@
 
 import { _AnalyticsRecordsRowBase } from '../generated/_analytics-records-row-base.js';
 
-export class AnalyticsRecordsRow extends _AnalyticsRecordsRowBase {
-}
+export class AnalyticsRecordsRow extends _AnalyticsRecordsRowBase {}

@@ -31,9 +31,7 @@ function compareVersions(a: string, b: string): number {
  * Get the current schema version from db_properties.
  * Returns null if the table does not exist yet.
  */
-async function getCurrentVersion(
-  conn: PoolClient
-): Promise<string | null> {
+async function getCurrentVersion(conn: PoolClient): Promise<string | null> {
   try {
     const result = await conn.query(
       "SELECT value FROM db_properties WHERE name = 'schema_version'"
@@ -55,32 +53,27 @@ async function getCurrentVersion(
  * Version 0.0.0 is a special case: its B10-tables.sql inserts the
  * initial schema_version row, so no separate UPDATE is issued.
  */
-async function applyVersion(
-  conn: PoolClient,
-  version: string
-): Promise<void> {
+async function applyVersion(conn: PoolClient, version: string): Promise<void> {
   const log = getLogger(MODULE, 'applyVersion');
   const versionDir = path.join(SCHEMA_DIR, version);
 
   // B-prefixed, exclude B99
-  const files = fs.readdirSync(versionDir)
-    .filter(f => /^B(?!99)\d+.*\.sql$/.test(f))
+  const files = fs
+    .readdirSync(versionDir)
+    .filter((f) => /^B(?!99)\d+.*\.sql$/.test(f))
     .sort();
 
   log.info(`Applying schema ${version} (${files.length} file(s))`);
 
   for (const file of files) {
-    const sql = fs.readFileSync(
-      path.join(versionDir, file), 'utf-8'
-    );
+    const sql = fs.readFileSync(path.join(versionDir, file), 'utf-8');
     log.debug(`Executing ${file}`);
     await conn.query(sql);
   }
 
   if (version !== '0.0.0') {
     await conn.query(
-      "UPDATE db_properties SET value = $1 " +
-      "WHERE name = 'schema_version'",
+      'UPDATE db_properties SET value = $1 ' + "WHERE name = 'schema_version'",
       [version]
     );
     log.info(`Schema version set to ${version}`);
@@ -111,22 +104,19 @@ export async function runSchemaMigrations(): Promise<void> {
     // Step 2: data import happens externally before this runs, if needed.
 
     // Step 3: apply all versions newer than the current schema_version
-    const current = await getCurrentVersion(conn) ?? '0.0.0';
+    const current = (await getCurrentVersion(conn)) ?? '0.0.0';
     log.info(`Current schema version: ${current}`);
 
-    const pending = fs.readdirSync(SCHEMA_DIR)
-      .filter(name => /^\d+\.\d+\.\d+$/.test(name))
+    const pending = fs
+      .readdirSync(SCHEMA_DIR)
+      .filter((name) => /^\d+\.\d+\.\d+$/.test(name))
       .sort(compareVersions)
-      .filter(
-        v => v !== '0.0.0' && compareVersions(v, current) > 0
-      );
+      .filter((v) => v !== '0.0.0' && compareVersions(v, current) > 0);
 
     if (pending.length === 0) {
       log.info('Schema is up to date');
     } else {
-      log.info(
-        `Applying ${pending.length} update(s): ${pending.join(', ')}`
-      );
+      log.info(`Applying ${pending.length} update(s): ${pending.join(', ')}`);
       for (const version of pending) {
         await applyVersion(conn, version);
       }

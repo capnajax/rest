@@ -25,7 +25,8 @@ export function registerErrorHandlers(app: Application<AppMeta>) {
       const statusCode = err instanceof HttpError ? err.statusCode : 500;
       res.status(statusCode).json({
         error: statusCode < 500 ? err.message : 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+        message:
+          process.env.NODE_ENV === 'development' ? err.message : undefined,
       });
     }
   });

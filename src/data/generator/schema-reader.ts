@@ -1,22 +1,22 @@
 import { Pool, PoolClient } from 'pg';
 import { pgTypeToTs, pgArrayUdtToTs } from './type-mapper.js';
-import type { OrmConfig }             from './config.js';
+import type { OrmConfig } from './config.js';
 import type { TableInfo, ColumnInfo, RelationshipInfo } from './types.js';
 
 // ── Raw rows from information_schema ──────────────────────────────────────
 
 interface RawColumn {
-  column_name:              string;
-  data_type:                string;
-  udt_name:                 string;
-  is_nullable:              string;  // 'YES' | 'NO'
-  column_default:           string | null;
+  column_name: string;
+  data_type: string;
+  udt_name: string;
+  is_nullable: string; // 'YES' | 'NO'
+  column_default: string | null;
 }
 
 interface RawFkRow {
-  column_name:          string;
-  foreign_table_name:   string;
-  foreign_column_name:  string;
+  column_name: string;
+  foreign_table_name: string;
+  foreign_column_name: string;
   column_count: number;
 }
 
@@ -28,7 +28,7 @@ interface RawFkRow {
  */
 export async function readSchema(
   connectionString: string,
-  config: OrmConfig,
+  config: OrmConfig
 ): Promise<TableInfo[]> {
   const pool = new Pool({ connectionString });
 
@@ -46,7 +46,10 @@ export async function readSchema(
 }
 
 /** Read schema metadata using an existing connection (also used by generator tests). */
-export async function readSchemaFromConnection(client: PoolClient, config: OrmConfig): Promise<TableInfo[]> {
+export async function readSchemaFromConnection(
+  client: PoolClient,
+  config: OrmConfig
+): Promise<TableInfo[]> {
   const tableNames = await listTables(client);
   const results: TableInfo[] = [];
 
@@ -62,15 +65,18 @@ export async function readSchemaFromConnection(client: PoolClient, config: OrmCo
 
     const isReference = config.referenceTables.has(tableName);
     const relationships = inferReferenceRelationships(
-      tableName, columns, foreignKeys, config,
+      tableName,
+      columns,
+      foreignKeys,
+      config
     );
 
     results.push({
       tableName,
-      className:    toPascalCase(tableName),
+      className: toPascalCase(tableName),
       isReference,
-      isLink:       false,
-      pkColumn:     pkColumn ?? 'id',
+      isLink: false,
+      pkColumn: pkColumn ?? 'id',
       columns,
       relationships,
     });
@@ -83,21 +89,33 @@ function inferReferenceRelationships(
   tableName: string,
   columns: ColumnInfo[],
   foreignKeys: RawFkRow[],
-  config: OrmConfig,
+  config: OrmConfig
 ): RelationshipInfo[] {
   const relationships = [...(config.relationships.get(tableName) ?? [])];
   for (const fk of foreignKeys) {
     if (!config.referenceTables.has(fk.foreign_table_name)) continue;
     if (fk.column_count !== 1) {
-      throw new Error(`Composite reference foreign key on '${tableName}' is not supported`);
+      throw new Error(
+        `Composite reference foreign key on '${tableName}' is not supported`
+      );
     }
     // An explicitly configured single relationship for this FK overrides inference.
-    if (relationships.some(rel => rel.kind === 'single' && rel.foreignKey === fk.column_name)) continue;
+    if (
+      relationships.some(
+        (rel) => rel.kind === 'single' && rel.foreignKey === fk.column_name
+      )
+    )
+      continue;
     const name = fk.column_name.endsWith('_id')
       ? fk.column_name.slice(0, -3)
       : `${fk.column_name}_ref`;
-    if (columns.some(column => column.name === name) || relationships.some(rel => rel.name === name)) {
-      throw new Error(`Inferred relationship '${tableName}.${name}' conflicts with an existing property; configure a single relationship with a different name for '${fk.column_name}'`);
+    if (
+      columns.some((column) => column.name === name) ||
+      relationships.some((rel) => rel.name === name)
+    ) {
+      throw new Error(
+        `Inferred relationship '${tableName}.${name}' conflicts with an existing property; configure a single relationship with a different name for '${fk.column_name}'`
+      );
     }
     relationships.push({
       name,
@@ -112,8 +130,12 @@ function inferReferenceRelationships(
   return relationships;
 }
 
-async function readForeignKeys(client: PoolClient, tableName: string): Promise<RawFkRow[]> {
-  const result = await client.query<RawFkRow>(`
+async function readForeignKeys(
+  client: PoolClient,
+  tableName: string
+): Promise<RawFkRow[]> {
+  const result = await client.query<RawFkRow>(
+    `
     SELECT source_column.attname AS column_name,
            target.relname AS foreign_table_name,
            target_column.attname AS foreign_column_name,
@@ -132,7 +154,9 @@ async function readForeignKeys(client: PoolClient, tableName: string): Promise<R
       AND target_schema.nspname = 'public'
       AND source.relname = $1
     ORDER BY fk.conname
-  `, [tableName]);
+  `,
+    [tableName]
+  );
   return result.rows;
 }
 
@@ -147,36 +171,47 @@ async function listTables(client: PoolClient): Promise<string[]> {
   return result.rows.map((r: { table_name: string }) => r.table_name);
 }
 
-async function readColumns(client: PoolClient, tableName: string): Promise<ColumnInfo[]> {
+async function readColumns(
+  client: PoolClient,
+  tableName: string
+): Promise<ColumnInfo[]> {
   const [colResult, pkResult] = await Promise.all([
-    client.query<RawColumn>(`
+    client.query<RawColumn>(
+      `
       SELECT column_name, data_type, udt_name, is_nullable, column_default
       FROM   information_schema.columns
       WHERE  table_schema = 'public'
         AND  table_name   = $1
       ORDER  BY ordinal_position
-    `, [tableName]),
+    `,
+      [tableName]
+    ),
     readPkSet(client, tableName),
   ]);
 
   return colResult.rows.map((row: RawColumn) => {
-    const tsType = row.data_type === 'ARRAY'
-      ? pgArrayUdtToTs(row.udt_name)
-      : pgTypeToTs(row.data_type);
+    const tsType =
+      row.data_type === 'ARRAY'
+        ? pgArrayUdtToTs(row.udt_name)
+        : pgTypeToTs(row.data_type);
 
     return {
-      name:         row.column_name,
-      pgType:       row.data_type,
+      name: row.column_name,
+      pgType: row.data_type,
       tsType,
-      isNullable:   row.is_nullable === 'YES',
+      isNullable: row.is_nullable === 'YES',
       isPrimaryKey: pkResult.has(row.column_name),
-      hasDflt:      row.column_default !== null,
+      hasDflt: row.column_default !== null,
     };
   });
 }
 
-async function readPkSet(client: PoolClient, tableName: string): Promise<Set<string>> {
-  const result = await client.query<{ column_name: string }>(`
+async function readPkSet(
+  client: PoolClient,
+  tableName: string
+): Promise<Set<string>> {
+  const result = await client.query<{ column_name: string }>(
+    `
     SELECT kcu.column_name
     FROM   information_schema.table_constraints   tc
     JOIN   information_schema.key_column_usage    kcu
@@ -185,11 +220,18 @@ async function readPkSet(client: PoolClient, tableName: string): Promise<Set<str
     WHERE  tc.table_schema    = 'public'
       AND  tc.table_name      = $1
       AND  tc.constraint_type = 'PRIMARY KEY'
-  `, [tableName]);
-  return new Set(result.rows.map((r: { column_name: string }) => r.column_name));
+  `,
+    [tableName]
+  );
+  return new Set(
+    result.rows.map((r: { column_name: string }) => r.column_name)
+  );
 }
 
-async function readPrimaryKey(client: PoolClient, tableName: string): Promise<string | null> {
+async function readPrimaryKey(
+  client: PoolClient,
+  tableName: string
+): Promise<string | null> {
   const pkSet = await readPkSet(client, tableName);
   const [first] = pkSet;
   return first ?? null;
@@ -204,6 +246,6 @@ async function readPrimaryKey(client: PoolClient, tableName: string): Promise<st
 function toPascalCase(name: string): string {
   return name
     .split('_')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
 }

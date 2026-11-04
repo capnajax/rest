@@ -2,27 +2,34 @@ import winston from 'winston';
 import * as fs from 'fs';
 import { deepClone, deepMerge, isNil, omit } from './tools.js';
 import {
-  FormatType, LoggerConfig, LoggerConfigLoggingObject, LoggerLevelConfig,
-  LogTransportConfig, LogTransportFactoryOptions, MMP
+  FormatType,
+  LoggerConfig,
+  LoggerConfigLoggingObject,
+  LoggerLevelConfig,
+  LogTransportConfig,
+  LogTransportFactoryOptions,
+  MMP,
 } from './logger-types.js';
 import { registerToken, completeToken } from './readiness.js';
 
-const DEFAULT_LEVEL_CONFIG:LoggerLevelConfig = {
+const DEFAULT_LEVEL_CONFIG: LoggerLevelConfig = {
   level: 'info',
   format: 'colored',
-  transport: { type: 'console' } as LogTransportConfig
-}
+  transport: { type: 'console' } as LogTransportConfig,
+};
 
-function getLevelTag(level:string):string {
-  return {
-    error:   '[#ERROR]',
-    warn:    '[*warn*]',
-    info:    '[ info ]',
-    http:    '[ http ]',
-    debug:   '[  dbg ]',
-    verbose: '[   vb ]',
-    silly:   '[    s ]',
-  }[level] || '[      ]';
+function getLevelTag(level: string): string {
+  return (
+    {
+      error: '[#ERROR]',
+      warn: '[*warn*]',
+      info: '[ info ]',
+      http: '[ http ]',
+      debug: '[  dbg ]',
+      verbose: '[   vb ]',
+      silly: '[    s ]',
+    }[level] || '[      ]'
+  );
 }
 
 export interface HttpRequestLogData {
@@ -40,7 +47,7 @@ function isHttpRequestLogData(data: unknown): data is HttpRequestLogData {
   if (typeof data !== 'object' || data === null) {
     return false;
   }
-  
+
   const obj = data as Record<string, unknown>;
   return (
     typeof obj.method === 'string' &&
@@ -53,10 +60,14 @@ function isHttpRequestLogData(data: unknown): data is HttpRequestLogData {
 /**
  * Build a context string from module, method, and optional path
  */
-function buildContextString(mmp: MMP, levelConfig: LoggerLevelConfig, color: boolean = true): string {
-  const nocolor=color?'\x1b[0m':'';
-  const green=color?'\x1b[32m':'';
-  const blue=color?'\x1b[34m':'';
+function buildContextString(
+  mmp: MMP,
+  levelConfig: LoggerLevelConfig,
+  color: boolean = true
+): string {
+  const nocolor = color ? '\x1b[0m' : '';
+  const green = color ? '\x1b[32m' : '';
+  const blue = color ? '\x1b[34m' : '';
   if (isHttpMethod(mmp, levelConfig)) {
     return `${green}${mmp.method}${mmp.path ? ' ' + mmp.path : ''}${nocolor} [${mmp.module}]:`;
   } else {
@@ -73,7 +84,7 @@ const formats: Record<string, FormatType> = {
       winston.format.printf(({ level, message, ...meta }) => {
         const context = buildContextString(mmp, levelConfig, false);
 
-        const levelTag:string = getLevelTag(level)
+        const levelTag: string = getLevelTag(level);
 
         return `${levelTag} ${context} ${message}`;
       })
@@ -85,15 +96,16 @@ const formats: Record<string, FormatType> = {
 
         const context = buildContextString(mmp, levelConfig);
 
-        const levelTag:string = {
-          error:   '\x1b[97;1m[\x1b[91;1;4m#ERROR\x1b[0;97m]\x1b[0m',
-          warn:    '\x1b[97;1m[\x1b[94;1m*warn*\x1b[0;97m]\x1b[0m',
-          info:    '\x1b[97m[\x1b[92;1m info \x1b[0;97m]\x1b[0m',
-          http:    '\x1b[97m[\x1b[96;1m http \x1b[0;97m]\x1b[0m',
-          debug:   '\x1b[37m[\x1b[35m  dbg \x1b[37m]\x1b[0m',
-          verbose: '\x1b[90m[\x1b[37m   vb \x1b[90m]\x1b[0m',
-          silly:   '\x1b[90m[\x1b[90m    s \x1b[90m]\x1b[0m',
-        }[level] || '\x1b[37m[\x1b[90m      \x1b[37m]\x1b[0m';
+        const levelTag: string =
+          {
+            error: '\x1b[97;1m[\x1b[91;1;4m#ERROR\x1b[0;97m]\x1b[0m',
+            warn: '\x1b[97;1m[\x1b[94;1m*warn*\x1b[0;97m]\x1b[0m',
+            info: '\x1b[97m[\x1b[92;1m info \x1b[0;97m]\x1b[0m',
+            http: '\x1b[97m[\x1b[96;1m http \x1b[0;97m]\x1b[0m',
+            debug: '\x1b[37m[\x1b[35m  dbg \x1b[37m]\x1b[0m',
+            verbose: '\x1b[90m[\x1b[37m   vb \x1b[90m]\x1b[0m',
+            silly: '\x1b[90m[\x1b[90m    s \x1b[90m]\x1b[0m',
+          }[level] || '\x1b[37m[\x1b[90m      \x1b[37m]\x1b[0m';
 
         return `${levelTag} ${context}${reset} ${message}`;
       })
@@ -114,28 +126,32 @@ const formats: Record<string, FormatType> = {
         return `${timestamp} ${message}`;
       })
     );
-  }
+  },
 };
 
-const transportFactories:
-  Record<string, (format: LogTransportFactoryOptions) => winston.transport> = {
-    console: (options: LogTransportFactoryOptions) => {
-      return new winston.transports.Console(options);
-    },
-    file: (options: LogTransportFactoryOptions) => {
-      return new winston.transports.File({
-        ...options,
-        filename: 'logs/app.log'
-      });
-    },
-    errorFile: (options: LogTransportFactoryOptions) => {
-      return new winston.transports.File(deepMerge(
+const transportFactories: Record<
+  string,
+  (format: LogTransportFactoryOptions) => winston.transport
+> = {
+  console: (options: LogTransportFactoryOptions) => {
+    return new winston.transports.Console(options);
+  },
+  file: (options: LogTransportFactoryOptions) => {
+    return new winston.transports.File({
+      ...options,
+      filename: 'logs/app.log',
+    });
+  },
+  errorFile: (options: LogTransportFactoryOptions) => {
+    return new winston.transports.File(
+      deepMerge(
         { level: 'error' } as winston.transports.FileTransportOptions,
         options,
         { filename: 'logs/error.log' }
-      ));
-    },
-  };
+      )
+    );
+  },
+};
 
 /**
  * Get or create a transport instance. Create a new instance per logger to avoid
@@ -152,7 +168,11 @@ function getTransport(
   }
 
   const tConfig: LogTransportFactoryOptions = {
-    format: buildFormat(mmp, levelConfig, transportConfig.format || levelConfig.format),
+    format: buildFormat(
+      mmp,
+      levelConfig,
+      transportConfig.format || levelConfig.format
+    ),
     level: transportConfig.level || levelConfig.level || 'info',
   };
 
@@ -164,16 +184,25 @@ function getTransport(
 
 // HTTP methods for detection
 const HTTP_METHODS = new Set([
-  'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'
+  'GET',
+  'POST',
+  'PUT',
+  'DELETE',
+  'PATCH',
+  'HEAD',
+  'OPTIONS',
 ]);
 
 /**
  * Check if a method is an HTTP method (case-sensitive)
  */
-function isHttpMethod(mmp: MMP): boolean|undefined;
+function isHttpMethod(mmp: MMP): boolean | undefined;
 function isHttpMethod(mmp: MMP, levelConfig?: LoggerLevelConfig): boolean;
 
-function isHttpMethod(mmp: MMP, levelConfig?: LoggerLevelConfig): boolean|undefined {
+function isHttpMethod(
+  mmp: MMP,
+  levelConfig?: LoggerLevelConfig
+): boolean | undefined {
   function isMmpHttpMethod(mmp: MMP): boolean {
     return HTTP_METHODS.has(mmp.method);
   }
@@ -225,32 +254,33 @@ function buildLevelConfig(
   path: string | undefined,
   options?: Partial<LoggerLevelConfig>
 ): LoggerLevelConfig {
-
   if (!config) {
     throw new Error('Logger configuration is not initialized');
   }
 
-  const baseConfig:LoggerConfigLoggingObject = config!.logging;
-  
-  let resultConfig:LoggerLevelConfig =
+  const baseConfig: LoggerConfigLoggingObject = config!.logging;
+
+  let resultConfig: LoggerLevelConfig =
     deepMerge<LoggerLevelConfig>(
       DEFAULT_LEVEL_CONFIG,
-      omit(baseConfig as Record<string, unknown>, 'modules'
-    ) as LoggerLevelConfig) || {};
+      omit(
+        baseConfig as Record<string, unknown>,
+        'modules'
+      ) as LoggerLevelConfig
+    ) || {};
 
   if (options) {
     // Apply overrides from options (e.g. for testing or loggers that have
     // extra requirements beyond module/method/path)
     resultConfig = deepMerge(resultConfig, options);
   }
-  
+
   // Apply module config
   if (baseConfig.modules?.[module]) {
-    const moduleConfig =
-      omit(
-        baseConfig.modules[module] as Record<string, unknown>,
-        'methods'
-      ) as Partial<LoggerLevelConfig>;
+    const moduleConfig = omit(
+      baseConfig.modules[module] as Record<string, unknown>,
+      'methods'
+    ) as Partial<LoggerLevelConfig>;
     if (Object.keys(moduleConfig).length > 0) {
       resultConfig = deepMerge(resultConfig, moduleConfig);
     }
@@ -258,20 +288,24 @@ function buildLevelConfig(
 
   // Apply method config
   if (baseConfig.modules?.[module]?.methods?.[method]) {
-    const methodConfig =
-      omit(
-        baseConfig.modules[module].methods[method] as Record<string, unknown>,
-      'paths') as Partial<LoggerLevelConfig>;
+    const methodConfig = omit(
+      baseConfig.modules[module].methods[method] as Record<string, unknown>,
+      'paths'
+    ) as Partial<LoggerLevelConfig>;
     if (Object.keys(methodConfig).length > 0) {
       resultConfig = deepMerge(resultConfig, methodConfig);
     }
   }
 
   // Apply path config (HTTP only)
-  if ((resultConfig?.isEndpoint !== false) && path && 
+  if (
+    resultConfig?.isEndpoint !== false &&
+    path &&
     baseConfig.modules?.[module]?.methods?.[method]?.paths?.[path]
   ) {
-    const pathConfig = baseConfig.modules[module].methods[method].paths[path] as Partial<LoggerLevelConfig>;
+    const pathConfig = baseConfig.modules[module].methods[method].paths[
+      path
+    ] as Partial<LoggerLevelConfig>;
     if (Object.keys(pathConfig).length > 0) {
       resultConfig = deepMerge(resultConfig, pathConfig);
     }
@@ -294,7 +328,6 @@ export function initializeLogger(configInput: LoggerConfig): void {
     }
 
     completeToken(token);
-
   } catch (error) {
     completeToken(token, false);
     throw error;
@@ -304,16 +337,25 @@ export function initializeLogger(configInput: LoggerConfig): void {
 /**
  * Build a Winston format from configuration value(s)
  */
-function buildFormat(mmp: MMP, levelConfig: LoggerLevelConfig, formatConfig?: string | string[]): winston.Logform.Format {
+function buildFormat(
+  mmp: MMP,
+  levelConfig: LoggerLevelConfig,
+  formatConfig?: string | string[]
+): winston.Logform.Format {
   if (!formatConfig) {
-    return (formats.colored || (() => winston.format.simple()))(mmp, levelConfig);
+    return (formats.colored || (() => winston.format.simple()))(
+      mmp,
+      levelConfig
+    );
   }
 
-  const formatNames = Array.isArray(formatConfig) ? formatConfig : [formatConfig];
+  const formatNames = Array.isArray(formatConfig)
+    ? formatConfig
+    : [formatConfig];
   const selectedFormats = formatNames
-    .map(name => formats[name])
+    .map((name) => formats[name])
     .filter((f): f is FormatType => f !== undefined)
-    .map(formatFn => formatFn(mmp, levelConfig));
+    .map((formatFn) => formatFn(mmp, levelConfig));
 
   if (selectedFormats.length === 0) {
     return winston.format.simple();
@@ -326,15 +368,18 @@ function buildFormat(mmp: MMP, levelConfig: LoggerLevelConfig, formatConfig?: st
  * Build Winston transports from configuration value(s)
  */
 function buildTransports(
-  mmp: MMP, levelConfig: LoggerLevelConfig,
+  mmp: MMP,
+  levelConfig: LoggerLevelConfig,
   transportConfig?: LogTransportConfig | LogTransportConfig[]
 ): winston.transport[] {
   const transportsToUse: winston.transport[] = [];
-  
+
   if (!transportConfig) {
-    transportsToUse.push(getTransport(mmp, levelConfig, {type: 'console'}));
+    transportsToUse.push(getTransport(mmp, levelConfig, { type: 'console' }));
   } else {
-    const transportConfigs = Array.isArray(transportConfig) ? transportConfig : [transportConfig];
+    const transportConfigs = Array.isArray(transportConfig)
+      ? transportConfig
+      : [transportConfig];
     for (const transportConifg of transportConfigs) {
       try {
         transportsToUse.push(getTransport(mmp, levelConfig, transportConifg));
@@ -344,7 +389,9 @@ function buildTransports(
     }
   }
 
-  return transportsToUse.length > 0 ? transportsToUse : [getTransport(mmp, levelConfig, {type: 'console'})];
+  return transportsToUse.length > 0
+    ? transportsToUse
+    : [getTransport(mmp, levelConfig, { type: 'console' })];
 }
 
 /**
@@ -353,7 +400,7 @@ function buildTransports(
  */
 export function getLogger(
   module: string,
-  method: string|Function,
+  method: string | Function,
   ...options: Partial<LoggerLevelConfig>[]
 ): winston.Logger;
 
@@ -362,16 +409,18 @@ export function getLogger(
  * @example getLogger('users', 'GET', '/api/users/:id')
  */
 export function getLogger(
-  module: string, method: string|Function, path: string,
+  module: string,
+  method: string | Function,
+  path: string,
   ...options: Partial<LoggerLevelConfig>[]
 ): winston.Logger;
 
 export function getLogger(
-  module: string, method: string|Function,
-  optionsOrPath?: string|Partial<LoggerLevelConfig>,
+  module: string,
+  method: string | Function,
+  optionsOrPath?: string | Partial<LoggerLevelConfig>,
   ...options: Partial<LoggerLevelConfig>[]
 ): winston.Logger {
-
   if (typeof method === 'function') {
     method = method.name;
   }
@@ -383,20 +432,16 @@ export function getLogger(
   const path = typeof optionsOrPath === 'string' ? optionsOrPath : undefined;
   const collapsedOptions =
     typeof optionsOrPath === 'object' && optionsOrPath !== null
-      ? (options.length > 0
+      ? options.length > 0
         ? deepMerge(optionsOrPath, ...options)
         : optionsOrPath
-        )
-      : (isNil(optionsOrPath)
+      : isNil(optionsOrPath)
         ? {}
-        : (options.length > 0
-          ? (options.length === 1
-            ? deepClone(options[0]) as Partial<LoggerLevelConfig>
+        : options.length > 0
+          ? options.length === 1
+            ? (deepClone(options[0]) as Partial<LoggerLevelConfig>)
             : deepMerge(options[0], ...options.slice(1))
-            )
-          : {}
-          )
-        );
+          : {};
 
   const cacheKey = buildCacheKey(module, method, path);
   const mmp = { module, method, path };
@@ -416,20 +461,22 @@ export function getLogger(
 
   console.log(
     '\x1b[90m[logger]\x1b[0m Creating logger level %s for %s',
-    getLevelTag(levelConfig.level || ''), cacheKey
+    getLevelTag(levelConfig.level || ''),
+    cacheKey
   );
 
   // Build format with context awareness
-  const format = buildFormat({ module, method, path }, levelConfig, levelConfig.format);
+  const format = buildFormat(
+    { module, method, path },
+    levelConfig,
+    levelConfig.format
+  );
 
   // Create a dedicated logger for this context
   const contextLogger = winston.createLogger({
     level: levelConfig.level || 'info',
     levels: customLevels,
-    format: winston.format.combine(
-      winston.format.splat(),
-      format,
-    ),
+    format: winston.format.combine(winston.format.splat(), format),
     transports: buildTransports(mmp, levelConfig, levelConfig.transport),
   });
 
@@ -443,14 +490,20 @@ export function getLogger(
 /**
  * Register a custom format factory
  */
-export function registerFormat(name: string, format: (mmp: MMP, levelConfig: LoggerLevelConfig) => winston.Logform.Format): void {
+export function registerFormat(
+  name: string,
+  format: (mmp: MMP, levelConfig: LoggerLevelConfig) => winston.Logform.Format
+): void {
   formats[name] = format;
 }
 
 /**
  * Register a custom transport factory
  */
-export function registerTransport(name: string, factory: () => winston.transport): void {
+export function registerTransport(
+  name: string,
+  factory: () => winston.transport
+): void {
   transportFactories[name] = factory;
 }
 

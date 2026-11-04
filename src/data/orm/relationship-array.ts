@@ -9,11 +9,11 @@ import type { MutableRow } from './mutable-row.js';
  */
 export class RelationshipArray<T extends MutableRow> {
   private _original: T[];
-  private _current:  T[];
+  private _current: T[];
 
   constructor(initial: T[] = []) {
     this._original = [...initial];
-    this._current  = [...initial];
+    this._current = [...initial];
   }
 
   // ── Read ──────────────────────────────────────────────────────────────────
@@ -31,17 +31,17 @@ export class RelationshipArray<T extends MutableRow> {
 
   get isDirty(): boolean {
     if (this._current.length !== this._original.length) return true;
-    return this._current.some(item => !this._original.includes(item));
+    return this._current.some((item) => !this._original.includes(item));
   }
 
   /** Items present in the current set but not in the original. */
   get added(): T[] {
-    return this._current.filter(item => !this._original.includes(item));
+    return this._current.filter((item) => !this._original.includes(item));
   }
 
   /** Items present in the original set but no longer in the current set. */
   get removed(): T[] {
-    return this._original.filter(item => !this._current.includes(item));
+    return this._original.filter((item) => !this._current.includes(item));
   }
 
   // ── Mutate ────────────────────────────────────────────────────────────────

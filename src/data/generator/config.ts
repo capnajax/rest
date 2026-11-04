@@ -1,4 +1,4 @@
-import * as fs   from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'yaml';
 import type { RelationshipInfo } from './types.js';
@@ -6,25 +6,25 @@ import type { RelationshipInfo } from './types.js';
 // ── Shape of orm.config.yaml ──────────────────────────────────────────────
 
 interface RawRelationship {
-  name:        string;
-  kind:        'link' | 'direct' | 'single';
+  name: string;
+  kind: 'link' | 'direct' | 'single';
   targetTable: string;
   // loadWith: for deciding which relationships to load with which columns
   //    simple: load with `loadSimple()`, e.g. when loading simple relationships
   //    all: lad with `loadAll()`, e.g. load when loading all relationships
-  loadWith?:   'simple' | 'all';
+  loadWith?: 'simple' | 'all';
   // link
-  linkTable?:  string;
-  sourceFk?:   string;
-  targetFk?:   string;
+  linkTable?: string;
+  sourceFk?: string;
+  targetFk?: string;
   // direct: target FK; single: local FK
   foreignKey?: string;
 }
 
 interface RawConfig {
   referenceTables?: string[];
-  linkTables?:      string[];
-  relationships?:   Record<string, RawRelationship[]>;
+  linkTables?: string[];
+  relationships?: Record<string, RawRelationship[]>;
   output?: {
     directory?: string;
   };
@@ -34,9 +34,9 @@ interface RawConfig {
 
 export interface OrmConfig {
   referenceTables: Set<string>;
-  linkTables:      Set<string>;
-  relationships:   Map<string, RelationshipInfo[]>;
-  outputDir:       string;
+  linkTables: Set<string>;
+  relationships: Map<string, RelationshipInfo[]>;
+  outputDir: string;
 }
 
 // ── Loader ────────────────────────────────────────────────────────────────
@@ -50,8 +50,8 @@ export function loadConfig(projectRoot: string): OrmConfig {
 
   if (!fs.existsSync(configPath)) {
     throw new Error(
-      `orm.config.yaml not found at ${configPath}.\n`
-      + `Copy orm.config.yaml.example to orm.config.yaml and fill it in.`,
+      `orm.config.yaml not found at ${configPath}.\n` +
+        `Copy orm.config.yaml.example to orm.config.yaml and fill it in.`
     );
   }
 
@@ -62,44 +62,54 @@ export function loadConfig(projectRoot: string): OrmConfig {
   for (const [tableName, rels] of Object.entries(raw.relationships ?? {})) {
     relationships.set(
       tableName,
-      rels.map(r => {
+      rels.map((r) => {
         const rel = validateRelationship(r, tableName);
-        if (rel.kind === 'single') rel.isReference = referenceTables.has(rel.targetTable);
+        if (rel.kind === 'single')
+          rel.isReference = referenceTables.has(rel.targetTable);
         return rel;
-      }),
+      })
     );
   }
 
   return {
     referenceTables,
-    linkTables:      new Set(raw.linkTables ?? []),
+    linkTables: new Set(raw.linkTables ?? []),
     relationships,
-    outputDir:       raw.output?.directory ?? 'src/data/generated',
+    outputDir: raw.output?.directory ?? 'src/data/generated',
   };
 }
 
-function validateRelationship(r: RawRelationship, table: string): RelationshipInfo {
-  if (!r.name)        throw new Error(`Relationship in '${table}' is missing 'name'`);
-  if (!r.kind)        throw new Error(`Relationship '${r.name}' in '${table}' is missing 'kind'`);
-  if (!r.targetTable) throw new Error(`Relationship '${r.name}' in '${table}' is missing 'targetTable'`);
+function validateRelationship(
+  r: RawRelationship,
+  table: string
+): RelationshipInfo {
+  if (!r.name) throw new Error(`Relationship in '${table}' is missing 'name'`);
+  if (!r.kind)
+    throw new Error(`Relationship '${r.name}' in '${table}' is missing 'kind'`);
+  if (!r.targetTable)
+    throw new Error(
+      `Relationship '${r.name}' in '${table}' is missing 'targetTable'`
+    );
 
   if (!['link', 'direct', 'single'].includes(r.kind)) {
     throw new Error(`Unknown relationship kind '${r.kind}' in '${table}'`);
   }
   if (r.loadWith !== undefined && !['simple', 'all'].includes(r.loadWith)) {
-    throw new Error(`Invalid loadWith for relationship '${r.name}' in '${table}'`);
+    throw new Error(
+      `Invalid loadWith for relationship '${r.name}' in '${table}'`
+    );
   }
 
   if (r.kind === 'link') {
     if (!r.linkTable || !r.sourceFk || !r.targetFk) {
       throw new Error(
-        `Link relationship '${r.name}' in '${table}' requires linkTable, sourceFk, targetFk`,
+        `Link relationship '${r.name}' in '${table}' requires linkTable, sourceFk, targetFk`
       );
     }
   } else {
     if (!r.foreignKey) {
       throw new Error(
-        `Relationship '${r.name}' in '${table}' requires foreignKey`,
+        `Relationship '${r.name}' in '${table}' requires foreignKey`
       );
     }
   }

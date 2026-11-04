@@ -9,7 +9,7 @@ import { ReferenceData } from '../orm/reference-data.js';
 export class ContentTypesRow extends _ContentTypesRowBase {
   toJSON(): Record<string, unknown> {
     const result: Record<string, unknown> = super.toJSON();
-    console.log("this.form_factor = %s", this.form_factor)
+    console.log('this.form_factor = %s', this.form_factor);
     result.form_factor = this.form_factor;
     return result;
   }

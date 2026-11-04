@@ -4,5 +4,4 @@
 
 import { _PeopleRowBase } from '../generated/_people-row-base.js';
 
-export class PeopleRow extends _PeopleRowBase {
-}
+export class PeopleRow extends _PeopleRowBase {}

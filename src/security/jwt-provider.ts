@@ -17,7 +17,7 @@ import type {
   OAuthClient,
   OAuthToken,
   TokenIntrospectionResult,
-  AccessTokenClaims
+  AccessTokenClaims,
 } from './types.js';
 import type { OAuthProvider } from './provider.js';
 import type { TokenStore } from './token-store.js';
@@ -56,34 +56,42 @@ export class JWTOAuthProvider implements OAuthProvider {
     const keys = appConfig().security.jwtKeys || [];
     const now = new Date();
 
-    const activeKey = keys.find((key) => {
-      if (!key || !key.private || !key.public) {
-        return false;
-      }
-      if (key.expiry && new Date(key.expiry) < now) {
-        return false;
-      }
-      return true;
-    }) || keys[0];
+    const activeKey =
+      keys.find((key) => {
+        if (!key || !key.private || !key.public) {
+          return false;
+        }
+        if (key.expiry && new Date(key.expiry) < now) {
+          return false;
+        }
+        return true;
+      }) || keys[0];
 
     if (!activeKey) {
-      throw new Error('No JWT signing key configured in appConfig.security.jwtKeys');
+      throw new Error(
+        'No JWT signing key configured in appConfig.security.jwtKeys'
+      );
     }
     return activeKey;
   }
 
   private getPublicKeyForKid(kid: string) {
-    const key = (appConfig().security.jwtKeys || []).find((entry) => entry.kid === kid);
+    const key = (appConfig().security.jwtKeys || []).find(
+      (entry) => entry.kid === kid
+    );
     if (!key || !key.public) {
       throw new Error(`No public key configured for kid ${kid}`);
     }
     return key.public;
   }
 
-  private signJWT(claims: AccessTokenClaims, keyInfo: { kid: string; private: string }): string {
+  private signJWT(
+    claims: AccessTokenClaims,
+    keyInfo: { kid: string; private: string }
+  ): string {
     return sign(claims, keyInfo.private, {
       algorithm: 'ES256',
-      keyid: keyInfo.kid
+      keyid: keyInfo.kid,
     });
   }
 
@@ -102,7 +110,7 @@ export class JWTOAuthProvider implements OAuthProvider {
     const publicKey = this.getPublicKeyForKid(kid);
     return verify(token, publicKey, {
       algorithms: ['ES256'],
-      issuer: this.config.issuer
+      issuer: this.config.issuer,
     }) as AccessTokenClaims;
   }
 
@@ -116,14 +124,17 @@ export class JWTOAuthProvider implements OAuthProvider {
     const expiresAt = new Date(issuedAt.getTime() + expiresInSeconds * 1000);
     const signingKey = this.getSigningKey();
 
-    const jwtValue = this.signJWT({
-      sub: userId || clientId,
-      client_id: clientId,
-      scope: scopes.join(' '),
-      iat: Math.floor(issuedAt.getTime() / 1000),
-      exp: Math.floor(expiresAt.getTime() / 1000),
-      realm_id: this.realmId
-    }, signingKey);
+    const jwtValue = this.signJWT(
+      {
+        sub: userId || clientId,
+        client_id: clientId,
+        scope: scopes.join(' '),
+        iat: Math.floor(issuedAt.getTime() / 1000),
+        exp: Math.floor(expiresAt.getTime() / 1000),
+        realm_id: this.realmId,
+      },
+      signingKey
+    );
 
     const token: OAuthToken = {
       value: jwtValue,
@@ -135,8 +146,8 @@ export class JWTOAuthProvider implements OAuthProvider {
       expiresAt,
       scopes,
       metadata: {
-        kid: signingKey.kid
-      }
+        kid: signingKey.kid,
+      },
     };
 
     await this.tokenStore.save(token);
@@ -162,7 +173,7 @@ export class JWTOAuthProvider implements OAuthProvider {
       clientId,
       issuedAt,
       expiresAt,
-      scopes
+      scopes,
     };
 
     await this.tokenStore.save(token);
@@ -197,8 +208,8 @@ export class JWTOAuthProvider implements OAuthProvider {
       metadata: {
         redirect_uri: redirectUri,
         code_challenge: codeChallenge,
-        nonce
-      }
+        nonce,
+      },
     };
 
     await this.tokenStore.save(token);
@@ -226,7 +237,7 @@ export class JWTOAuthProvider implements OAuthProvider {
       sub: storedToken.userId || undefined,
       iat: Math.floor(storedToken.issuedAt.getTime() / 1000),
       exp: Math.floor(storedToken.expiresAt.getTime() / 1000),
-      ...storedToken.metadata
+      ...storedToken.metadata,
     };
   }
 
@@ -240,7 +251,11 @@ export class JWTOAuthProvider implements OAuthProvider {
     clientSecret: string | undefined,
     redirectUri: string,
     codeVerifier?: string
-  ): Promise<{ access_token: string; refresh_token?: string; expires_in: number }> {
+  ): Promise<{
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
+  }> {
     // TODO: Implement code exchange
     // 1. Verify code exists and not expired
     // 2. Verify code matches clientId
@@ -252,7 +267,7 @@ export class JWTOAuthProvider implements OAuthProvider {
     return {
       access_token: 'access_token_stub',
       refresh_token: 'refresh_token_stub',
-      expires_in: this.config.accessTokenTTL
+      expires_in: this.config.accessTokenTTL,
     };
   }
 
@@ -269,13 +284,11 @@ export class JWTOAuthProvider implements OAuthProvider {
 
     return {
       access_token: 'new_access_token_stub',
-      expires_in: this.config.accessTokenTTL
+      expires_in: this.config.accessTokenTTL,
     };
   }
 
-  async getUserInfo(
-    token: string
-  ): Promise<{
+  async getUserInfo(token: string): Promise<{
     sub: string;
     username?: string;
     email?: string;
@@ -330,11 +343,11 @@ export class JWTOAuthProvider implements OAuthProvider {
       grant_types_supported: [
         'authorization_code',
         'refresh_token',
-        'client_credentials'
+        'client_credentials',
       ],
       revocation_endpoint: `${baseUrl}/v3/oauth/revoke`,
       introspection_endpoint: `${baseUrl}/v3/oauth/introspect`,
-      code_challenge_methods_supported: ['S256', 'plain']
+      code_challenge_methods_supported: ['S256', 'plain'],
     };
   }
 }

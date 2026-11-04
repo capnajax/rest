@@ -5,13 +5,12 @@ import {
   getLogger,
   clearLoggerCache,
   resetLogger,
-  registerFormat
+  registerFormat,
 } from '../../src/util/logger';
 import winston from 'winston';
 import { LoggerConfig, MMP } from '../../src/util/logger-types';
 
 suite('Logger Module', () => {
-
   after(async () => {
     resetLogger();
   });
@@ -19,7 +18,7 @@ suite('Logger Module', () => {
   before(async () => {
     // visual testing to ensure logs are formatted correctly - not an automated
     // test
-    const config:LoggerConfig = {
+    const config: LoggerConfig = {
       logging: {
         level: 'debug',
         format: 'colored',
@@ -43,14 +42,14 @@ suite('Logger Module', () => {
                       { type: 'console' },
                       { type: 'console', format: 'json', level: 'error' },
                       { type: 'console', format: 'simple', level: 'warn' },
-                      { type: 'console', format: 'detailed' }
-                    ]
+                      { type: 'console', format: 'detailed' },
+                    ],
                   },
                 },
-              }
-            }
-          }
-        }
+              },
+            },
+          },
+        },
       },
     };
     initializeLogger(config);
@@ -68,23 +67,31 @@ suite('Logger Module', () => {
 
     const errorLog = getLogger('error', 'errorTest');
     errorLog.error('Visible ok - error - lowest level for error.errorTest');
-    errorLog.warn('WRONG - warn - should NOT appear because of module override');
+    errorLog.warn(
+      'WRONG - warn - should NOT appear because of module override'
+    );
 
     const endpointLog = getLogger('http', 'GET', '/test');
-    endpointLog.info('Visible TWICE ok - info - lowest level for http GET /test');
-    endpointLog.debug('WRONG - debug - should NOT appear because of path override');
+    endpointLog.info(
+      'Visible TWICE ok - info - lowest level for http GET /test'
+    );
+    endpointLog.debug(
+      'WRONG - debug - should NOT appear because of path override'
+    );
 
     log.info('## Back to first logger - should still be debug level');
     log.debug('Visible ok - debug - lowest level for test.loggerTest');
-    log.silly('WRONG - should NOT appear because level is debug for test.loggerTest');
+    log.silly(
+      'WRONG - should NOT appear because level is debug for test.loggerTest'
+    );
     sillyLog.info('## Back to silly logger - should still be silly level');
     sillyLog.debug('Visible ok - debug');
     sillyLog.verbose('Visible ok - verbose');
     sillyLog.silly('Visible ok - silly - lowest level for silly.sillyTest');
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     console.log();
-  })
+  });
 
   TestBattery.test('initialization with config object', (battery) => {
     const config = {
@@ -101,13 +108,13 @@ suite('Logger Module', () => {
     initializeLogger(config);
     const rootLogger = getLogger('root', 'root');
 
-    battery.test('Root logger should be Winston instance')
-      .value(rootLogger instanceof winston.Logger)
-      .is.true;
-    battery.test('Root logger should have configured level')
+    battery
+      .test('Root logger should be Winston instance')
+      .value(rootLogger instanceof winston.Logger).is.true;
+    battery
+      .test('Root logger should have configured level')
       .value(rootLogger.level)
-      .value('info')
-      .equal;
+      .value('info').equal;
   });
 
   TestBattery.test('getLogger for TypeScript function', (battery) => {
@@ -115,7 +122,7 @@ suite('Logger Module', () => {
       logging: {
         level: 'info',
         format: 'colored',
-        transport: {type: 'console'},
+        transport: { type: 'console' },
       },
     };
 
@@ -124,9 +131,9 @@ suite('Logger Module', () => {
 
     const logger = getLogger('auth', 'login');
 
-    battery.test('Should return Winston logger')
-      .value(logger instanceof winston.Logger)
-      .is.true;
+    battery
+      .test('Should return Winston logger')
+      .value(logger instanceof winston.Logger).is.true;
   });
 
   TestBattery.test('getLogger for HTTP endpoint', (battery) => {
@@ -143,31 +150,34 @@ suite('Logger Module', () => {
 
     const logger = getLogger('users', 'GET', '/api/users/:id');
 
-    battery.test('Should return Winston logger for HTTP endpoint')
-      .value(logger instanceof winston.Logger)
-      .is.true;
+    battery
+      .test('Should return Winston logger for HTTP endpoint')
+      .value(logger instanceof winston.Logger).is.true;
   });
 
-  TestBattery.test('logger caching - same MMP returns same instance', (battery) => {
-    const config = {
-      logging: {
-        level: 'info',
-        format: 'colored',
-        transport: { type: 'console' },
-      },
-    };
+  TestBattery.test(
+    'logger caching - same MMP returns same instance',
+    (battery) => {
+      const config = {
+        logging: {
+          level: 'info',
+          format: 'colored',
+          transport: { type: 'console' },
+        },
+      };
 
-    clearLoggerCache();
-    initializeLogger(config);
+      clearLoggerCache();
+      initializeLogger(config);
 
-    const logger1 = getLogger('auth', 'login');
-    const logger2 = getLogger('auth', 'login');
+      const logger1 = getLogger('auth', 'login');
+      const logger2 = getLogger('auth', 'login');
 
-    battery.test('Same module/method should return cached logger')
-      .value(logger1)
-      .value(logger2)
-      .strictlyEqual;
-  });
+      battery
+        .test('Same module/method should return cached logger')
+        .value(logger1)
+        .value(logger2).strictlyEqual;
+    }
+  );
 
   TestBattery.test('different MMPs return different instances', (battery) => {
     const config = {
@@ -184,10 +194,10 @@ suite('Logger Module', () => {
     const logger1 = getLogger('auth', 'login');
     const logger2 = getLogger('auth', 'logout');
 
-    battery.test('Different methods should return different loggers')
+    battery
+      .test('Different methods should return different loggers')
       .value(logger1)
-      .value(logger2)
-      .is.not.strictlyEqual;
+      .value(logger2).is.not.strictlyEqual;
   });
 
   TestBattery.test('config hierarchy - module overrides default', (battery) => {
@@ -209,10 +219,10 @@ suite('Logger Module', () => {
 
     const logger = getLogger('auth', 'login');
 
-    battery.test('Module config should override default level')
+    battery
+      .test('Module config should override default level')
       .value(logger.level)
-      .value('debug')
-      .equal;
+      .value('debug').equal;
   });
 
   TestBattery.test('config hierarchy - method overrides module', (battery) => {
@@ -239,45 +249,48 @@ suite('Logger Module', () => {
 
     const logger = getLogger('auth', 'login');
 
-    battery.test('Method config should override module level')
+    battery
+      .test('Method config should override module level')
       .value(logger.level)
-      .value('trace')
-      .equal;
+      .value('trace').equal;
   });
 
-  TestBattery.test('config hierarchy - path overrides method for HTTP endpoints', (battery) => {
-    const config = {
-      logging: {
-        level: 'info',
-        format: 'colored',
-        transport: { type: 'console' },
-        modules: {
-          users: {
-            methods: {
-              GET: {
-                level: 'debug',
-                paths: {
-                  '/api/users/:id': {
-                    level: 'trace',
+  TestBattery.test(
+    'config hierarchy - path overrides method for HTTP endpoints',
+    (battery) => {
+      const config = {
+        logging: {
+          level: 'info',
+          format: 'colored',
+          transport: { type: 'console' },
+          modules: {
+            users: {
+              methods: {
+                GET: {
+                  level: 'debug',
+                  paths: {
+                    '/api/users/:id': {
+                      level: 'trace',
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-    };
+      };
 
-    clearLoggerCache();
-    initializeLogger(config);
+      clearLoggerCache();
+      initializeLogger(config);
 
-    const logger = getLogger('users', 'GET', '/api/users/:id');
+      const logger = getLogger('users', 'GET', '/api/users/:id');
 
-    battery.test('Path config should override method level')
-      .value(logger.level)
-      .value('trace')
-      .equal;
-  });
+      battery
+        .test('Path config should override method level')
+        .value(logger.level)
+        .value('trace').equal;
+    }
+  );
 
   TestBattery.test('HTTP method detection is case-sensitive', (battery) => {
     const config = {
@@ -307,17 +320,17 @@ suite('Logger Module', () => {
 
     // GET is HTTP method, should use path override
     const logger1 = getLogger('users', 'GET', '/path');
-    battery.test('Uppercase HTTP method should match path config')
+    battery
+      .test('Uppercase HTTP method should match path config')
       .value(logger1.level)
-      .value('trace')
-      .equal;
+      .value('trace').equal;
 
     // get is TS method, should not use path override
     const logger2 = getLogger('users', 'get', '/path');
-    battery.test('Lowercase method should not match HTTP path config')
+    battery
+      .test('Lowercase method should not match HTTP path config')
       .value(logger2.level)
-      .value('info')
-      .equal;
+      .value('info').equal;
   });
 
   TestBattery.test('error on uninitialized logger', (battery) => {
@@ -330,12 +343,12 @@ suite('Logger Module', () => {
       error = e as Error;
     }
 
-    battery.test('Should throw error when not initialized')
-      .value(error !== null)
-      .is.true;
-    battery.test('Error message should mention initialization')
-      .value(error?.message.includes('not initialized') ?? false)
-      .is.true;
+    battery
+      .test('Should throw error when not initialized')
+      .value(error !== null).is.true;
+    battery
+      .test('Error message should mention initialization')
+      .value(error?.message.includes('not initialized') ?? false).is.true;
   });
 
   TestBattery.test('clearLoggerCache empties cache', (battery) => {
@@ -354,10 +367,10 @@ suite('Logger Module', () => {
 
     const logger2 = getLogger('auth', 'login');
 
-    battery.test('After cache clear, should return new logger instance')
+    battery
+      .test('After cache clear, should return new logger instance')
       .value(logger1)
-      .value(logger2)
-      .is.not.strictlyEqual;
+      .value(logger2).is.not.strictlyEqual;
   });
 
   TestBattery.test('can register custom format', (battery) => {
@@ -371,17 +384,16 @@ suite('Logger Module', () => {
 
     clearLoggerCache();
 
-    const customFormat = (mmp: MMP) =>
-      winston.format.simple();
+    const customFormat = (mmp: MMP) => winston.format.simple();
 
     registerFormat('customFormat', customFormat);
     initializeLogger(config);
 
     const logger = getLogger('auth', 'login');
 
-    battery.test('Should create logger with custom format')
-      .value(logger instanceof winston.Logger)
-      .is.true;
+    battery
+      .test('Should create logger with custom format')
+      .value(logger instanceof winston.Logger).is.true;
   });
 
   TestBattery.test('all Winston log levels available', (battery) => {
@@ -409,10 +421,10 @@ suite('Logger Module', () => {
     ];
 
     for (const method of logMethods) {
-      battery.test(`Logger should have ${method} method`)
+      battery
+        .test(`Logger should have ${method} method`)
         .value(typeof logger[method as keyof typeof logger])
-        .value('function')
-        .equal;
+        .value('function').equal;
     }
   });
 
@@ -436,22 +448,25 @@ suite('Logger Module', () => {
 
     registerFormat('testFormat', testFormat);
 
-    const newConfig = { ...config, logging: { ...config.logging, format: 'testFormat' } };
+    const newConfig = {
+      ...config,
+      logging: { ...config.logging, format: 'testFormat' },
+    };
     initializeLogger(newConfig);
 
     getLogger('users', 'GET', '/api/users/:id');
 
-    battery.test('Format should receive module')
+    battery
+      .test('Format should receive module')
       .value(receivedContext.module)
-      .value('users')
-      .equal;
-    battery.test('Format should receive method')
+      .value('users').equal;
+    battery
+      .test('Format should receive method')
       .value(receivedContext.method)
-      .value('GET')
-      .equal;
-    battery.test('Format should receive path')
+      .value('GET').equal;
+    battery
+      .test('Format should receive path')
       .value(receivedContext.path)
-      .value('/api/users/:id')
-      .equal;
+      .value('/api/users/:id').equal;
   });
 });

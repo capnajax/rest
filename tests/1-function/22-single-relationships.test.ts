@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import type { PoolClient } from 'pg';
-import { _ArticlesRowBase, ContentTypesRow, _PermalinksRowBase } from '../../src/data/generated/index.js';
+import {
+  _ArticlesRowBase,
+  ContentTypesRow,
+  _PermalinksRowBase,
+} from '../../src/data/generated/index.js';
 import { initializeLogger, resetLogger } from '../../src/util/logger.js';
 import { ReferenceData } from '../../src/data/orm/reference-data.js';
 
-function connection(handler: (sql: string, params: unknown[]) => Record<string, unknown>[]) {
+function connection(
+  handler: (sql: string, params: unknown[]) => Record<string, unknown>[]
+) {
   const calls: { sql: string; params: unknown[] }[] = [];
   const client = {
     async query(sql: string, params: unknown[] = []) {
@@ -19,10 +25,19 @@ function connection(handler: (sql: string, params: unknown[]) => Record<string, 
 after(() => resetLogger());
 
 before(async () => {
-  initializeLogger({ logging: { level: 'error', transport: { type: 'console' } } });
-  const { client } = connection(sql => sql.includes('FROM "content_types"')
-    ? [{ id: 1, name: 'Article', form_factor_id: 1 }, { id: 2, name: 'Note', form_factor_id: 1 }]
-    : sql.includes('FROM "form_factors"') ? [{ id: 1, name: 'feature' }] : []);
+  initializeLogger({
+    logging: { level: 'error', transport: { type: 'console' } },
+  });
+  const { client } = connection((sql) =>
+    sql.includes('FROM "content_types"')
+      ? [
+          { id: 1, name: 'Article', form_factor_id: 1 },
+          { id: 2, name: 'Note', form_factor_id: 1 },
+        ]
+      : sql.includes('FROM "form_factors"')
+        ? [{ id: 1, name: 'feature' }]
+        : []
+  );
   await ReferenceData.initialize(client);
 });
 
@@ -34,10 +49,14 @@ test('reference getters use the startup snapshot and follow the current FK witho
   row.content_type_id.value = 2;
   assert.equal(row.content_type?.name.value, 'Note');
   assert.deepEqual(row.toJSON().content_type, {
-    id: 2, name: 'Note', form_factor_id: 1,
-    form_factor: ReferenceData.byTableId('form_factors', 1)
+    id: 2,
+    name: 'Note',
+    form_factor_id: 1,
+    form_factor: ReferenceData.byTableId('form_factors', 1),
   });
-  assert.throws(() => { row.content_type!.name.value = 'Changed'; }, /immutable/);
+  assert.throws(() => {
+    row.content_type!.name.value = 'Changed';
+  }, /immutable/);
 });
 
 test('single references distinguish unloaded, null, and missing targets', async () => {
@@ -57,7 +76,10 @@ test('single references distinguish unloaded, null, and missing targets', async 
   assert.equal(row.primary_permalink, null);
   row.content_type_id.value = 99;
   assert.equal(row.content_type, null);
-  await assert.rejects(row.loadRelationship('unknown', client), /Unknown relationship/);
+  await assert.rejects(
+    row.loadRelationship('unknown', client),
+    /Unknown relationship/
+  );
 });
 
 test('dynamic single references query the target PK with the local FK and invalidate stale values', async () => {
@@ -83,9 +105,11 @@ test('dynamic single references query the target PK with the local FK and invali
 
 test('loadSimple loads single relationships and still exposes link collections', async () => {
   const row = new _ArticlesRowBase({ id: 10 });
-  const { client, calls } = connection(sql => {
-    if (sql.includes('FROM articles')) return [{ id: 10, content_type_id: 1, primary_permalink_id: 27 }];
-    if (sql.includes('FROM "permalinks"')) return [{ id: 27, name: 'hello', article_id: 10 }];
+  const { client, calls } = connection((sql) => {
+    if (sql.includes('FROM articles'))
+      return [{ id: 10, content_type_id: 1, primary_permalink_id: 27 }];
+    if (sql.includes('FROM "permalinks"'))
+      return [{ id: 27, name: 'hello', article_id: 10 }];
     if (sql.includes('FROM "tags"')) return [{ id: 3, name: 'tag' }];
     throw new Error(`Unexpected query: ${sql}`);
   });
@@ -96,33 +120,45 @@ test('loadSimple loads single relationships and still exposes link collections',
   assert.equal(row.tags?.items[0].id.value, 3);
   assert.equal(row.attachments, undefined);
   assert.equal(row.isDirty(), false);
-  assert.deepEqual(row.toJSON().primary_permalink, { id: 27, name: 'hello', article_id: 10 });
+  assert.deepEqual(row.toJSON().primary_permalink, {
+    id: 27,
+    name: 'hello',
+    article_id: 10,
+  });
 });
 
 test('saving/deleting the owner does not cascade into a single target', async () => {
   const row = new _ArticlesRowBase({ id: 10, primary_permalink_id: 27 }, true);
-  const { client, calls } = connection(sql => sql.startsWith('SELECT')
-    ? [{ id: 27, name: 'hello', article_id: 10 }] : []);
+  const { client, calls } = connection((sql) =>
+    sql.startsWith('SELECT') ? [{ id: 27, name: 'hello', article_id: 10 }] : []
+  );
   await row.loadRelationship('primary_permalink', client);
   row.primary_permalink!.name.value = 'Changed target';
   assert.equal(row.isDirty(), false);
   row.primary_permalink_id.value = 28;
   await row.save(client);
-  const updates = calls.filter(call => call.sql.startsWith('UPDATE'));
+  const updates = calls.filter((call) => call.sql.startsWith('UPDATE'));
   assert.equal(updates.length, 1);
-  assert.match(updates[0].sql, /UPDATE "articles" SET "primary_permalink_id" = \$1/);
+  assert.match(
+    updates[0].sql,
+    /UPDATE "articles" SET "primary_permalink_id" = \$1/
+  );
   assert.deepEqual(updates[0].params, [28, 10]);
   await row.loadRelationship('primary_permalink', client);
   await row.delete(client);
-  assert.equal(calls.some(call => /(?:UPDATE|DELETE FROM) "permalinks"/.test(call.sql)), false);
+  assert.equal(
+    calls.some((call) => /(?:UPDATE|DELETE FROM) "permalinks"/.test(call.sql)),
+    false
+  );
 });
-
 
 test('loadAll includes direct and link collections alongside single targets', async () => {
   const row = new _ArticlesRowBase({ id: 10 });
-  const { client, calls } = connection(sql => {
-    if (sql.includes('FROM articles')) return [{ id: 10, content_type_id: 1, primary_permalink_id: 27 }];
-    if (sql.includes('FROM "permalinks"')) return [{ id: 27, name: 'hello', article_id: 10 }];
+  const { client, calls } = connection((sql) => {
+    if (sql.includes('FROM articles'))
+      return [{ id: 10, content_type_id: 1, primary_permalink_id: 27 }];
+    if (sql.includes('FROM "permalinks"'))
+      return [{ id: 27, name: 'hello', article_id: 10 }];
     return [];
   });
   await row.loadAll(client);
@@ -131,13 +167,17 @@ test('loadAll includes direct and link collections alongside single targets', as
   assert.equal(row.permalinks?.items[0].id.value, 27);
   assert.deepEqual(row.attachments?.items, []);
   assert.deepEqual(row.tags?.items, []);
-  const direct = calls.find(call => call.sql.includes('WHERE "article_id" = $1'));
+  const direct = calls.find((call) =>
+    call.sql.includes('WHERE "article_id" = $1')
+  );
   assert.deepEqual(direct?.params, [10]);
 });
-
 
 test('inferred reference-to-reference getters resolve from the startup snapshot', () => {
   const type = ReferenceData.byId(ContentTypesRow, 1)!;
   assert.equal(type.form_factor?.name.value, 'feature');
-  assert.equal(ReferenceData.byTableId('content_types', 'Article', 'name'), type);
+  assert.equal(
+    ReferenceData.byTableId('content_types', 'Article', 'name'),
+    type
+  );
 });

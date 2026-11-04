@@ -27,10 +27,9 @@ suite('ORM column immutability', () => {
   test('primary key becomes immutable once loaded from DB', () => {
     const row = new FakeRow({ id: 123 }, true);
     assert.equal(row.id.value, 123);
-    assert.throws(
-      () => { row.id.value = 456; },
-      /immutable/,
-    );
+    assert.throws(() => {
+      row.id.value = 456;
+    }, /immutable/);
   });
 
   test('new rows may still assign primary key before save', () => {

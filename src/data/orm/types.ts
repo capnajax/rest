@@ -16,8 +16,8 @@ export type Unset = typeof UNSET;
  */
 export type ColumnSets = {
   readonly summary: readonly string[];
-  readonly simple:  readonly string[];
-  readonly all:     readonly string[];
+  readonly simple: readonly string[];
+  readonly all: readonly string[];
 };
 
 /**
@@ -31,26 +31,29 @@ export type ColumnSets = {
  * loadWith: 'simple' – included in loadSimple() and loadAll()
  * loadWith: 'all'    – included only in loadAll()
  */
-export type RelationshipDef =
-  & {
-      name:        string;
-      targetTable: string;
-      loadWith:    'simple' | 'all';
+export type RelationshipDef = {
+  name: string;
+  targetTable: string;
+  loadWith: 'simple' | 'all';
+} & (
+  | { kind: 'link'; linkTable: string; sourceFk: string; targetFk: string }
+  | { kind: 'direct'; foreignKey: string }
+  | {
+      kind: 'single';
+      foreignKey: string;
+      isReference: boolean;
+      targetColumn?: string;
     }
-  & (
-    | { kind: 'link';   linkTable: string; sourceFk: string; targetFk: string }
-    | { kind: 'direct'; foreignKey: string }
-    | { kind: 'single'; foreignKey: string; isReference: boolean; targetColumn?: string }
-  );
+);
 
 /**
  * Static shape every generated MutableRow subclass must satisfy.
  * Accessed at runtime via `this.constructor` in base methods.
  */
 export interface MutableRowStatics {
-  tableName:        string;
-  pkColumn:         string;
-  columnSets:       ColumnSets;
+  tableName: string;
+  pkColumn: string;
+  columnSets: ColumnSets;
   relationshipDefs: RelationshipDef[];
 }
 
@@ -59,5 +62,5 @@ export interface MutableRowStatics {
  */
 export interface ImmutableRowStatics {
   tableName: string;
-  pkColumn:  string;
+  pkColumn: string;
 }

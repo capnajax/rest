@@ -8,12 +8,16 @@ import { Column } from './column.js';
 export class ImmutableColumn<T> extends Column<T> {
   constructor(
     readonly name: string,
-    value: T | null,
+    value: T | null
   ) {
     super(name, undefined, true);
     this.assumeClean(value);
   }
 
-  get isLoaded(): true  { return true; }
-  get isDirty():  false { return false; }
+  get isLoaded(): true {
+    return true;
+  }
+  get isDirty(): false {
+    return false;
+  }
 }

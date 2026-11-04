@@ -1,19 +1,20 @@
-import { Application, Request } from "filamentjs";
-import stringify from "safe-stable-stringify";
+import { Application, Request } from 'filamentjs';
+import stringify from 'safe-stable-stringify';
 import yaml from 'yaml';
 import toml from 'toml';
-import { AppMeta, ContentType, Context } from "../../meta/meta-types.js";
-import { getLogger } from "../../util/logger.js";
+import { AppMeta, ContentType, Context } from '../../meta/meta-types.js';
+import { getLogger } from '../../util/logger.js';
 
 const MODULE = 'm.parse-body';
 
-export function parseBody(req: Request<AppMeta, Context>)
-:() => Promise<unknown> {
+export function parseBody(
+  req: Request<AppMeta, Context>
+): () => Promise<unknown> {
   return async () => {
     const contentType = req.context.contentType as ContentType;
     const log = getLogger(MODULE, 'parseBody');
     log.verbose('called with content type: %o', contentType);
-    const body = await (req.body as Promise<Buffer>|undefined);
+    const body = await (req.body as Promise<Buffer> | undefined);
     if (!body) {
       log.verbose('no body to parse');
       return undefined;
@@ -42,15 +43,16 @@ export function parseBody(req: Request<AppMeta, Context>)
       log.error('Failed to parse request body: %o', e);
       throw new Error(`Failed to parse request body: ${stringify(e)}`);
     }
-  }
+  };
 }
 
 export function isSupportedMediaType(
-  req: Request<AppMeta, Context>, contentType?: ContentType
+  req: Request<AppMeta, Context>,
+  contentType?: ContentType
 ): boolean {
   const log = getLogger(MODULE, 'isSupportedMediaType');
   log.verbose('Checking if content type is supported: %o', contentType);
-  if (!(contentType?.type)) {
+  if (!contentType?.type) {
     return req.context.contentTypes?.allowMissingContentType || false;
   }
   const ct = req.context?.contentTypes;
@@ -60,18 +62,26 @@ export function isSupportedMediaType(
     return true;
   }
   log.verbose('Checking if content type is among supported types');
-  const acceptableTypes = ct.supportedTypes?.map((t: string) => {
-    if (t.includes('/')) {
-      return t;
-    } else {
-      return [`text/${t}`, `application/${t}`];
-    }
-  }).flat();
-  if (contentType?.type && acceptableTypes?.length)  {
-    log.verbose('Content type is %s, acceptable types are: %o', contentType.type, acceptableTypes);
+  const acceptableTypes = ct.supportedTypes
+    ?.map((t: string) => {
+      if (t.includes('/')) {
+        return t;
+      } else {
+        return [`text/${t}`, `application/${t}`];
+      }
+    })
+    .flat();
+  if (contentType?.type && acceptableTypes?.length) {
+    log.verbose(
+      'Content type is %s, acceptable types are: %o',
+      contentType.type,
+      acceptableTypes
+    );
     return acceptableTypes.includes(contentType.type);
   } else {
-    log.verbose('Content type is not specified or no acceptable types are defined, defaulting to true');
+    log.verbose(
+      'Content type is not specified or no acceptable types are defined, defaulting to true'
+    );
     return true;
   }
 }
@@ -90,7 +100,9 @@ export function parseContentMiddleware(app: Application<AppMeta, Context>) {
     let contentTypeString = req.headers.get('content-type') || null;
     if (Array.isArray(contentTypeString)) {
       // 400 Bad Request if multiple content-type headers are present
-      res.status(400).json({ error: 'Multiple Content-Type headers are not allowed' });
+      res
+        .status(400)
+        .json({ error: 'Multiple Content-Type headers are not allowed' });
       return;
     }
     if (!contentTypeString) {
@@ -98,8 +110,9 @@ export function parseContentMiddleware(app: Application<AppMeta, Context>) {
         contentTypeString = req.context.contentTypes.defaultType as string;
         if (!contentTypeString) {
           res.status(500).json({
-            error: 'Server misconfiguration: default content type is ' +
-              'required when allowMissingContentType is true'
+            error:
+              'Server misconfiguration: default content type is ' +
+              'required when allowMissingContentType is true',
           });
           return;
         }
@@ -116,19 +129,28 @@ export function parseContentMiddleware(app: Application<AppMeta, Context>) {
 
     const contentType = {
       type: contentTypeAsString?.split(';')[0].trim() || '',
-      params: contentTypeAsString?.split(';').slice(1).reduce((params, param) => {
-        const [key, value] = param.trim().split('=');
-        params[key] = value;
-        return params;
-      }, {} as Record<string, string>)
+      params: contentTypeAsString
+        ?.split(';')
+        .slice(1)
+        .reduce(
+          (params, param) => {
+            const [key, value] = param.trim().split('=');
+            params[key] = value;
+            return params;
+          },
+          {} as Record<string, string>
+        ),
     } as Partial<ContentType>;
 
     log.verbose('Parsed content type: %o', contentType);
 
     if (!isSupportedMediaType(req, contentType as ContentType)) {
-      log.verbose('Content type %s is not supported, rejecting request', contentType.type);
+      log.verbose(
+        'Content type %s is not supported, rejecting request',
+        contentType.type
+      );
       res.status(415).json({
-        error: `Content-Type ${contentType.type} is not acceptable`
+        error: `Content-Type ${contentType.type} is not acceptable`,
       });
       return;
     }
@@ -136,15 +158,17 @@ export function parseContentMiddleware(app: Application<AppMeta, Context>) {
     log.verbose('Content type is supported, proceeding to parse body');
 
     const textOrApp = (t: string) => {
-      return !!(contentType.type &&
-        [`application/${t}`, `text/${t}`].includes(contentType.type));
-    }
+      return !!(
+        contentType.type &&
+        [`application/${t}`, `text/${t}`].includes(contentType.type)
+      );
+    };
     const typeIs = (t: string) => {
       return !!(contentType.type && contentType?.type === t);
-    }
+    };
     const typeStartsWith = (t: string) => {
       return !!(contentType.type && contentType?.type.startsWith(t));
-    }
+    };
 
     log.verbose('Parsed content type: %o', contentType);
 
@@ -153,7 +177,8 @@ export function parseContentMiddleware(app: Application<AppMeta, Context>) {
     contentType.isYaml = () => textOrApp('yaml');
     contentType.isXml = () => textOrApp('xml');
     contentType.isToml = () => textOrApp('toml');
-    contentType.isFormUrlEncoded = () => typeIs('application/x-www-form-urlencoded');
+    contentType.isFormUrlEncoded = () =>
+      typeIs('application/x-www-form-urlencoded');
     contentType.isPlainText = () => typeIs('text/plain');
     contentType.isHtml = () => typeIs('text/html');
     contentType.isImage = () => typeStartsWith('image/');

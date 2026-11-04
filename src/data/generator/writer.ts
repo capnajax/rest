@@ -1,9 +1,11 @@
-import * as fs   from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import type { TableInfo } from './types.js';
 import {
-  generateMutableBase, generateImmutableBase,
-  generateMutableStub, generateImmutableStub,
+  generateMutableBase,
+  generateImmutableBase,
+  generateMutableStub,
+  generateImmutableStub,
 } from './template.js';
 
 /**
@@ -16,9 +18,9 @@ import {
  * Returns a summary of written / skipped files grouped by directory.
  */
 export function writeGeneratedFiles(
-  tables:      TableInfo[],
-  outputDir:   string,
-  projectRoot: string,
+  tables: TableInfo[],
+  outputDir: string,
+  projectRoot: string
 ): { written: string[]; skipped: string[] } {
   const absOutputDir = path.isAbsolute(outputDir)
     ? outputDir
@@ -35,7 +37,7 @@ export function writeGeneratedFiles(
 
   for (const table of tables) {
     // ── Generated base (always overwrite) ──────────────────────────────────
-    const baseFile    = `_${toKebabCase(table.tableName)}-row-base.ts`;
+    const baseFile = `_${toKebabCase(table.tableName)}-row-base.ts`;
     const baseContent = table.isReference
       ? generateImmutableBase(table)
       : generateMutableBase(table);
@@ -44,8 +46,8 @@ export function writeGeneratedFiles(
     written.push(`generated/${baseFile}`);
 
     // ── Extension stub (write only if absent) ───────────────────────────────
-    const stubFile    = `${toKebabCase(table.tableName)}-row.ts`;
-    const stubPath    = path.join(absTablesDir, stubFile);
+    const stubFile = `${toKebabCase(table.tableName)}-row.ts`;
+    const stubPath = path.join(absTablesDir, stubFile);
 
     if (fs.existsSync(stubPath)) {
       skipped.push(`tables/${stubFile}`);
@@ -67,7 +69,7 @@ export function writeGeneratedFiles(
 }
 
 function writeBarrel(tables: TableInfo[], outputDir: string): void {
-  const lines = tables.map(t => {
+  const lines = tables.map((t) => {
     const name = toKebabCase(t.tableName);
     const cls = toPascalCase(t.tableName);
     return t.isReference
@@ -93,5 +95,8 @@ function toKebabCase(name: string): string {
 }
 
 function toPascalCase(name: string): string {
-  return name.split('_').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+  return name
+    .split('_')
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join('');
 }
