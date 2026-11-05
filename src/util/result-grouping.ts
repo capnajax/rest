@@ -1,7 +1,6 @@
-import { ImmutableRow } from '../data/orm/immutable-row.js';
 import { MutableRow } from '../data/orm/mutable-row.js';
 
-export interface ResultGroupOptions {
+export interface NormalizedResultGroupOptions {
   /**
    *  The maximum number of articles to return at a time. The default is `0`,
    *  which means no maximum, just send when the group delay has been reached,
@@ -19,9 +18,11 @@ export interface ResultGroupOptions {
   maxGroupingDelayTime: number;
 }
 
+export type ResultGroupOptionsInput = Partial<NormalizedResultGroupOptions>;
+
 export function normalizeResultGroupOptions(
-  options: Partial<ResultGroupOptions> = {}
-): ResultGroupOptions {
+  options: ResultGroupOptionsInput = {}
+): NormalizedResultGroupOptions {
   return {
     maxGroupSize: options.maxGroupSize || 0,
     maxGroupingDelayTime:
@@ -36,7 +37,7 @@ export class ResultGrouper<T extends MutableRow> {
   private maxGroupingDelayTime: number | undefined;
   private queue: T[] = [];
 
-  constructor(options: ResultGroupOptions, cb: (rows: T[]) => void) {
+  constructor(options: NormalizedResultGroupOptions, cb: (rows: T[]) => void) {
     this.maxGroupSize = options.maxGroupSize;
     this.maxGroupingDelayTime = options.maxGroupingDelayTime;
     this.cb = cb;

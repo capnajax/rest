@@ -11,16 +11,16 @@ import {
   returnConnection,
 } from '../query.js';
 import {
+  NormalizedResultGroupOptions,
   normalizeResultGroupOptions,
   ResultGrouper,
-  ResultGroupOptions,
 } from '../../util/result-grouping.js';
 import { search, SearchOptions } from '../orm/search-tools.js';
 
 /**
  * Options for the `getTagsByIds` call
  */
-interface FullGetTagsOptions extends ResultGroupOptions {
+interface NormalizedGetTagsOptions extends NormalizedResultGroupOptions {
   /**
    *  The `PoolConnection` to use to load tags. If none is provided, a new
    *  connection will be created if needed.
@@ -29,10 +29,10 @@ interface FullGetTagsOptions extends ResultGroupOptions {
   important?: boolean;
 }
 
-export type GetTagsOptions = Partial<FullGetTagsOptions>;
+export type GetTagsOptionsInput = Partial<NormalizedGetTagsOptions>;
 function normalizeGetTagsOptions(
-  options: GetTagsOptions = {}
-): FullGetTagsOptions {
+  options: GetTagsOptionsInput = {}
+): NormalizedGetTagsOptions {
   return {
     ...normalizeResultGroupOptions(options),
     connection: options.connection || null,
@@ -42,7 +42,7 @@ function normalizeGetTagsOptions(
 export class TagsRow extends _TagsRowBase {
   /** Loads all tags, with a place to add caching in the future. */
   static async getTags(
-    options: GetTagsOptions,
+    options: GetTagsOptionsInput,
     cb: (tag: TagsRow[]) => void
   ): Promise<void> {
     const normalizedOptions = normalizeGetTagsOptions(options);
@@ -54,12 +54,12 @@ export class TagsRow extends _TagsRowBase {
     // this loads all the rows, then filters according to the options
 
     const filterGroup = options.important
-      ? (row:TagsRow) => {
+      ? (row: TagsRow) => {
           if (row.important.value) {
             grouper.push(row);
           }
         }
-      : (row:TagsRow) => grouper.push(row);
+      : (row: TagsRow) => grouper.push(row);
 
     if (options?.connection) {
       await this.loadTags(options.connection, filterGroup);

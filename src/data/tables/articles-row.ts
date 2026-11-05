@@ -14,9 +14,9 @@ import './people-row.js';
 import './permalinks-row.js';
 import './tags-row.js';
 import {
+  NormalizedResultGroupOptions,
   normalizeResultGroupOptions,
   ResultGrouper,
-  ResultGroupOptions,
 } from '../../util/result-grouping.js';
 import {
   loadByIds,
@@ -33,7 +33,7 @@ import { omit } from '../../util/tools.js';
 /**
  * Options for the `getArticlesByIds` call
  */
-interface FullGetArticlesOptions extends ResultGroupOptions {
+interface NormalizedGetArticlesOptions extends NormalizedResultGroupOptions {
   /**
    *  The `PoolConnection` to use to load articles. If none is provided, a new
    *  connection will be created if needed.
@@ -44,10 +44,10 @@ interface FullGetArticlesOptions extends ResultGroupOptions {
    */
   ifModifiedSince: Date | null;
 }
-export type GetArticlesOptions = Partial<FullGetArticlesOptions>;
+export type GetArticlesOptionsInput = Partial<NormalizedGetArticlesOptions>;
 function normalizeGetArticlesOptions(
-  options: GetArticlesOptions = {}
-): FullGetArticlesOptions {
+  options: GetArticlesOptionsInput = {}
+): NormalizedGetArticlesOptions {
   return {
     ...normalizeResultGroupOptions(options),
     connection: options.connection || null,
@@ -89,7 +89,7 @@ export class ArticlesRow extends _ArticlesRowBase {
   static async getArticlesByIds(
     ids: (number | string)[],
     cb: (articles: ArticlesRow[]) => void,
-    options?: GetArticlesOptions
+    options?: GetArticlesOptionsInput
   ): Promise<void> {
     const normalizedOptions = normalizeGetArticlesOptions(options);
     const connection = normalizedOptions.connection;
@@ -289,6 +289,7 @@ export class ArticlesRow extends _ArticlesRowBase {
 
     if (cb) {
       const loadCb = (record: ArticlesRecord): void => {
+        
         cb && cb(recordToRow(record));
       };
       await loadByIds<ArticlesRecord>('articles', ids, loadOptions, loadCb);
