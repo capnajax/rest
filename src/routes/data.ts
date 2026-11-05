@@ -83,6 +83,7 @@ interface ObjectsRequest {
    */
   formFactors?: ObjectsRequestFilter;
   tags?: ObjectsRequestFilter;
+
 }
 
 /**
@@ -99,8 +100,18 @@ export type ObjectsRequestFilter =
   | number
   | number[]
   | ObjectsRequestFilterObj;
+export type TagsRequestFilter =
+  | boolean
+  | number
+  | number[]
+  | TagsRequestFilterObj;
 interface ObjectsRequestFilterObj {
   id: number | number[] | 'all'; // 'all' is disallowed for articles
+  ifModifiedSince?: Date | string;
+}
+interface TagsRequestFilterObj {
+  id: number | number[] | 'all'; // 'all' is disallowed for articles
+  important?: boolean; // only used for tags
   ifModifiedSince?: Date | string;
 }
 interface ObjectsRequestFilterObjNoAll {
@@ -124,7 +135,7 @@ interface SearchOptions {
 interface NormalizedObjectsRequests {
   articles?: NormalizedObjectsRequestFilterNoAll;
   contentTypes?: true;
-  tags?: NormalizedObjectsRequestFilter;
+  tags?: NormalizedTagsRequestFilter;
 }
 interface NormalizedObjectsRequestFilter {
   id: number[] | 'all';
@@ -133,6 +144,9 @@ interface NormalizedObjectsRequestFilter {
 interface NormalizedObjectsRequestFilterNoAll {
   id: number[];
   ifModifiedSince?: Date;
+}
+interface NormalizedTagsRequestFilter extends NormalizedObjectsRequestFilter {
+  important?: true;
 }
 interface NormalizedArticleSearchFilter {
   searchSequence: number;
@@ -631,12 +645,13 @@ async function handleContentTypeObjects(out: OutputHandler): Promise<void> {
 }
 
 async function handleTagObjects(
+  filter: NormalizedTagsRequestFilter,
   out: OutputHandler,
   searchException: (error: unknown) => void
 ): Promise<void> {
   const tagWrites: Promise<void>[] = [];
 
-  await TagsRow.getTags({}, (tags) => {
+  await TagsRow.getTags(filter, (tags) => {
     const write = out.object(
       'tag',
       tags.map((tag) => tag.exportRecord() as TableUpdate)
@@ -822,7 +837,7 @@ function handleDataRequest(
     }
     if (body.objects.tags) {
       const handle = searchPending('tag objects');
-      handleTagObjects(out, searchException)
+      handleTagObjects(body.objects.tags, out, searchException)
         .then(() => searchComplete(handle))
         .catch(searchException);
     }
@@ -919,16 +934,23 @@ export async function getArticleObjects(req: Request, res: Response)
   await out.end();
 }
 
-/** Returns the requested tags, or every tag when IDs is 'all'. */
-export async function getTagObjects(req: Request, res: Response): Promise<void> {
+/** Returns tags selected by numeric IDs, 'all', or 'important'. */
+export async function getTagObjects(req: Request, res: Response)
+: Promise<void> {
   if (req.params.ids === undefined) {
     res.statusCode = 404;
     await res.end();
     return;
   }
 
+  const filters: { important?:boolean } = {};
+
+  if (req.params.ids === 'important') {
+    filters.important = true;
+  }
+
   let ids: Set<number> | undefined;
-  if (req.params.ids !== 'all') {
+  if (req.params.ids !== 'all' && req.params.ids !== 'important') {
     try {
       const values = req.params.ids.split(',');
       if (values.some((value) => !/^[+-]?\d+$/.test(value))) {
@@ -946,7 +968,7 @@ export async function getTagObjects(req: Request, res: Response): Promise<void> 
   const status: UpdateStatus = { date: new Date() };
   const records: TableUpdate[] = [];
   try {
-    await TagsRow.getTags({}, (tags) => {
+    await TagsRow.getTags(filters, (tags) => {
       for (const tag of tags) {
         const record = tag.exportRecord();
         if (ids === undefined || ids.has(record.id)) {
@@ -1077,14 +1099,21 @@ function assertGetRowsRequest(
   value: unknown
 ): asserts value is ObjectsRequestFilter {
   if (!isObjectsRequestFilter(value)) {
-    throw new TypeError('Expected a GetRowsRequest');
+    throw new TypeError('Expected a ObjectsRequestFilter');
   }
 }
 function assertGetRowsRequestNoAll(
   value: unknown
 ): asserts value is ObjectsRequestFilterNoAll {
   if (!isObjectsRequestFilterNoAll(value)) {
-    throw new TypeError('Expected a GetRowsRequest');
+    throw new TypeError('Expected a ObjectsRequestFilterNoAll');
+  }
+}
+function assertGetTagsRowsRequest(
+  value: unknown
+): asserts value is TagsRequestFilter {
+  if (!isTagsRequestFilter(value)) {
+    throw new TypeError('Expected a TagsRequestFilter');
   }
 }
 function assertSearchFilters(value: unknown): asserts value is SearchFilters {
@@ -1136,7 +1165,7 @@ function isObjectsRequest(value: unknown): value is ObjectsRequest {
       isObjectsRequestFilter(value.contentTypes)) &&
     (value.formFactors === undefined ||
       isObjectsRequestFilter(value.formFactors)) &&
-    (value.tags === undefined || isObjectsRequestFilter(value.tags))
+    (value.tags === undefined || isTagsRequestFilter(value.tags))
   );
 }
 function isObjectsRequestFilter(value: unknown): value is ObjectsRequestFilter {
@@ -1146,6 +1175,18 @@ function isObjectsRequestFilter(value: unknown): value is ObjectsRequestFilter {
     (Array.isArray(value) && value.every((n) => typeof n === 'number')) ||
     (isRecord(value) &&
       (isNumberOrNumberArray(value.id) || value.id === 'all') &&
+      (value.ifModifiedSince === undefined ||
+        isValidDate(value.ifModifiedSince)))
+  );
+}
+function isTagsRequestFilter(value: unknown): value is TagsRequestFilter {
+  return (
+    typeof value === 'boolean' ||
+    typeof value === 'number' ||
+    (Array.isArray(value) && value.every((n) => typeof n === 'number')) ||
+    (isRecord(value) &&
+      (isNumberOrNumberArray(value.id) || value.id === 'all') &&
+      (value.important === undefined || typeof value.important === 'boolean') &&
       (value.ifModifiedSince === undefined ||
         isValidDate(value.ifModifiedSince)))
   );
@@ -1224,7 +1265,7 @@ function normalizeObjectRequests(value: unknown): NormalizedObjectsRequests {
     result.contentTypes = true;
   }
   if (value.tags) {
-    result.tags = normalizeObjectsRequestFilter(value.tags);
+    result.tags = normalizeTagsRequestFilter(value.tags);
   }
   return result;
 }
@@ -1241,6 +1282,27 @@ function normalizeObjectsRequestFilter(
   const result: NormalizedObjectsRequestFilter = {
     id: value.id === 'all' ? value.id : normalizeArray(value.id),
   };
+  if (value.ifModifiedSince) {
+    result.ifModifiedSince = normalizeDate(value.ifModifiedSince);
+  }
+  return result;
+}
+function normalizeTagsRequestFilter(
+  value: unknown
+): NormalizedTagsRequestFilter {
+  assertGetTagsRowsRequest(value);
+  if (typeof value === 'boolean') {
+    return { id: 'all' };
+  }
+  if (isNumberOrNumberArray(value)) {
+    return { id: normalizeArray(value) };
+  }
+  const result: NormalizedTagsRequestFilter = {
+    id: value.id === 'all' ? value.id : normalizeArray(value.id),
+  };
+  if (value.important) {
+    result.important = true;
+  }
   if (value.ifModifiedSince) {
     result.ifModifiedSince = normalizeDate(value.ifModifiedSince);
   }

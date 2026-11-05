@@ -26,6 +26,7 @@ interface FullGetTagsOptions extends ResultGroupOptions {
    *  connection will be created if needed.
    */
   connection: PoolClient | null;
+  important?: boolean;
 }
 
 export type GetTagsOptions = Partial<FullGetTagsOptions>;
@@ -49,10 +50,21 @@ export class TagsRow extends _TagsRowBase {
     // TODO future feature: get from a cache
 
     const grouper = new ResultGrouper<TagsRow>(normalizedOptions, cb);
+
+    // this loads all the rows, then filters according to the options
+
+    const filterGroup = options.important
+      ? (row:TagsRow) => {
+          if (row.important.value) {
+            grouper.push(row);
+          }
+        }
+      : (row:TagsRow) => grouper.push(row);
+
     if (options?.connection) {
-      await this.loadTags(options.connection, (row) => grouper.push(row));
+      await this.loadTags(options.connection, filterGroup);
     } else {
-      await this.loadTags((row) => grouper.push(row));
+      await this.loadTags(filterGroup);
     }
     grouper.flush();
   }

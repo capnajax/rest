@@ -415,3 +415,31 @@ for (const fail of [false, true]) {
     }
   });
 }
+
+test('GET important tags returns only important records', async () => {
+  const records = [
+    { id: 7, important: true },
+    { id: 8, important: false },
+    { id: 9, important: true },
+  ];
+  const query = mock.method(TagsRow, 'loadTags', async (...args: unknown[]) => {
+    const callback = args[0] as (row: TagsRow) => void;
+    for (const record of records) {
+      callback(new TagsRow(record));
+    }
+  });
+  try {
+    const result = makeResponse();
+    await getTagObjects(makeArticleRequest('important'), result.response);
+    assert.equal(result.state.statusCode, 200);
+    assert.equal(result.state.ended, 1);
+    assert.equal(query.mock.callCount(), 1);
+    const body = JSON.parse(result.messages[0]);
+    assert.deepEqual(body.objects, [{
+      type: 'tag',
+      records: records.filter((record) => record.important),
+    }]);
+  } finally {
+    query.mock.restore();
+  }
+});
