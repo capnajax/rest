@@ -919,6 +919,55 @@ export async function getArticleObjects(req: Request, res: Response)
   await out.end();
 }
 
+/** Returns the requested tags, or every tag when IDs is 'all'. */
+export async function getTagObjects(req: Request, res: Response): Promise<void> {
+  if (req.params.ids === undefined) {
+    res.statusCode = 404;
+    await res.end();
+    return;
+  }
+
+  let ids: Set<number> | undefined;
+  if (req.params.ids !== 'all') {
+    try {
+      const values = req.params.ids.split(',');
+      if (values.some((value) => !/^[+-]?\d+$/.test(value))) {
+        throw new InvalidQuery('Expected comma-separated integer tag IDs.');
+      }
+      const numbers = values.map(Number);
+      assertPGableIntegerArray(numbers);
+      ids = new Set(numbers);
+    } catch (error) {
+      await rejectDataRequest(res, error);
+      return;
+    }
+  }
+
+  const status: UpdateStatus = { date: new Date() };
+  const records: TableUpdate[] = [];
+  try {
+    await TagsRow.getTags({}, (tags) => {
+      for (const tag of tags) {
+        const record = tag.exportRecord();
+        if (ids === undefined || ids.has(record.id)) {
+          records.push(record);
+        }
+      }
+    });
+  } catch (error) {
+    getLogger(MODULE, 'getTagObjects').error(
+      'Failed to load tags: %s', error
+    );
+    res.statusCode = 500;
+    await res.end();
+    return;
+  }
+
+  const out = new CombinedResponseHandler(res, false, status);
+  await out.object('tag', records);
+  await out.end();
+}
+
 async function rejectDataRequest(res: Response, error: unknown): Promise<void> {
   if (error instanceof InvalidQuery) {
     getLogger(MODULE, 'request').warn(
@@ -978,6 +1027,7 @@ export function dataRoutes(app: Application<AppMeta>) {
   });
 
   ctx.get('/articles/:ids', PUBLIC, getArticleObjects);
+  ctx.get('/tags/:ids', PUBLIC, getTagObjects);
 
   ctx.put('/', PUBLIC, (req, res) => {
     let body!: NormalizedSearchRequest;

@@ -4,9 +4,11 @@ import type { Request, Response } from 'filamentjs';
 import { Pool } from 'pg';
 import { parsedArgs } from '../../src/args.js';
 import { ArticlesRow } from '../../src/data/tables/articles-row.js';
+import { TagsRow } from '../../src/data/tables/tags-row.js';
 import {
   createPresetDataHandler,
   getArticleObjects,
+  getTagObjects,
 } from '../../src/routes/data.js';
 import { initializeLogger, resetLogger } from '../../src/util/logger.js';
 
@@ -249,6 +251,72 @@ function makeArticleRequest(ids: string, since?: string): Request {
     headers: new Headers(since ? { 'If-Modified-Since': since } : {}),
   } as unknown as Request;
 }
+
+for (const ids of ['all', '7,9', '7,7', '99']) {
+  test(`GET tags returns requested records and ignores IMS (${ids})`, async () => {
+    const records = [{ id: 7 }, { id: 8 }, { id: 9 }];
+    const query = mock.method(
+      TagsRow,
+      'getTags',
+      async (...[options, callback]: Parameters<typeof TagsRow.getTags>) => {
+        assert.deepEqual(options, {});
+        for (const record of records) {
+          callback([{ exportRecord: () => record } as TagsRow]);
+        }
+      }
+    );
+    try {
+      const result = makeResponse();
+      await getTagObjects(makeArticleRequest(
+        ids, 'Thu, 01 Jan 2099 00:00:00 GMT'
+      ), result.response);
+      const expected = ids === 'all'
+        ? records
+        : records.filter((record) => ids.split(',').includes(`${record.id}`));
+      assert.equal(result.state.statusCode, 200);
+      assert.equal(result.state.ended, 1);
+      assert.equal(result.headers.get('Last-Modified'), undefined);
+      assert.equal(result.headers.get('Content-Type'), 'application/json');
+      const body = JSON.parse(result.messages[0]);
+      assert.deepEqual(body.objects, [{ type: 'tag', records: expected }]);
+      assert.ok(body.status.date);
+    } finally {
+      query.mock.restore();
+    }
+  });
+}
+
+for (const ids of [undefined, '', '1,', ',1', '1,,2', '1.5', 'all,1',
+  '2147483648']) {
+  test(`GET tags rejects missing or invalid IDs (${ids})`, async () => {
+    const query = mock.method(TagsRow, 'getTags', async () => {});
+    try {
+      const result = makeResponse();
+      const request = { params: { ids } } as unknown as Request;
+      await getTagObjects(request, result.response);
+      assert.equal(result.state.statusCode, ids === undefined ? 404 : 400);
+      assert.equal(result.state.ended, 1);
+      assert.equal(query.mock.callCount(), 0);
+    } finally {
+      query.mock.restore();
+    }
+  });
+}
+
+test('GET tags ends the response when loading fails', async () => {
+  const query = mock.method(TagsRow, 'getTags', async () => {
+    throw new Error('Query failed');
+  });
+  try {
+    const result = makeResponse();
+    await getTagObjects(makeArticleRequest('all'), result.response);
+    assert.equal(result.state.statusCode, 500);
+    assert.equal(result.state.ended, 1);
+    assert.deepEqual(result.messages, []);
+  } finally {
+    query.mock.restore();
+  }
+});
 
 for (const since of [
   undefined,
