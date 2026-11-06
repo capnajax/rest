@@ -1,6 +1,5 @@
-import { PoolClient, Query } from 'pg';
+import { PoolClient } from 'pg';
 import { isRecord } from '../../util/tools.js';
-import { MutableRow } from './mutable-row.js';
 import {
   ALL,
   ANY,

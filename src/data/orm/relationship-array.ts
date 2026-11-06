@@ -57,6 +57,10 @@ export class RelationshipArray<T extends MutableRow> {
     if (idx !== -1) this._current.splice(idx, 1);
   }
 
+  hydrate(value: T[]) {
+    this._original = value;
+  }
+
   // ── Internal lifecycle ────────────────────────────────────────────────────
 
   /**

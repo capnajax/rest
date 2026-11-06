@@ -137,7 +137,7 @@ export abstract class MutableRow {
   _hydrate(data: Record<string, unknown>): void {
     this._singleRelationships.clear();
     for (const [key, value] of Object.entries(data)) {
-      this._columnMap.get(key)?._hydrate(value as any);
+      this._columnMap.get(key)?.hydrate(value as any);
     }
   }
 

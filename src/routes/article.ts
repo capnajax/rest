@@ -89,7 +89,12 @@ export function articleRoutes(app: Application<AppMeta>) {
 
     const cb = (article: ArticlesRow) => out.object(article.toJSON());
 
-    await ArticlesRow.loadArticlesByIds(q.ids, cb)
+    const load = q.stream
+      ? ArticlesRow.loadArticlesByIds(q.ids, cb)
+      : ArticlesRow.loadArticlesByIds(q.ids).then((articles) => {
+          articles.forEach(cb);
+        });
+    await load
       .then(() => {
         out.end();
       })

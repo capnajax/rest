@@ -1,122 +1,17 @@
 ---
 queries:
   article:
-    getFeatured: |2
-      SELECT a.id AS id, title, p.name AS permalink,
-        ARRAY(
-            SELECT ROW(t.title, t.color, t.important, t.seq) AS tags
-            FROM tags AS t, article_tag AS at
-            WHERE at.tag_id = t.id AND at.article_id = a.id
-            ORDER BY t.seq
-          ) AS tags
-      FROM articles AS a, permalinks AS p
-      WHERE a.is_featured = TRUE
-        AND p.id = a.primary_permalink_id;
-
-    getRecentSummariesByIds: |2
+    getTagIds: |2
       SELECT
-        a.id AS id,
-        a.title AS title,
-        a.id as id,
-        a.author_id as author_id,
-        a.active_dt as active_dt,
-        a.last_update as last_update,
-        a.content_type_id as content_type_id,
-        a.title as title,
-        a.uuid as uuid,
-        a.primary_permalink_id as primary_permalink_id,
-        a.info as info,
-        a.byline_id as byline_id,
-        a.is_featured as is_featured,
-        a.is_hidden as is_hidden,
-        p.name AS permalink,
-        c.name AS content_type,
-        f.name AS form_factor,
+        requested.article_id,
         COALESCE(
-          (
-            SELECT json_agg(
-              json_build_object(
-                'id', t.id,
-                'title', t.title,
-                'color', t.color,
-                'important', t.important,
-                'seq', t.seq
-              )
-            )
-            FROM tags AS t
-            JOIN article_tag AS at ON at.tag_id = t.id
-            WHERE at.article_id = a.id
-          ),
-          '[]'::json
-        ) AS tags
-      FROM articles AS a
-      LEFT JOIN permalinks AS p ON p.id = a.primary_permalink_id
-      JOIN content_types AS c ON c.id = a.content_type_id
-      JOIN form_factors AS f ON f.id = c.form_factor_id
-      WHERE a.id = ANY($1::int[])
-        AND a.last_update > $2::timestamp;
-
-    getSummariesByIds: |2
-      SELECT
-        a.id AS id,
-        a.title AS title,
-        a.id as id,
-        a.author_id as author_id,
-        a.active_dt as active_dt,
-        a.last_update as last_update,
-        a.content_type_id as content_type_id,
-        a.title as title,
-        a.uuid as uuid,
-        a.primary_permalink_id as primary_permalink_id,
-        a.info as info,
-        a.byline_id as byline_id,
-        a.is_featured as is_featured,
-        a.is_hidden as is_hidden,
-        p.name AS permalink,
-        c.name AS content_type,
-        f.name AS form_factor,
-        COALESCE(
-          (
-            SELECT json_agg(
-              json_build_object(
-                'id', t.id,
-                'title', t.title,
-                'color', t.color,
-                'important', t.important,
-                'seq', t.seq
-              )
-            )
-            FROM tags AS t
-            JOIN article_tag AS at ON at.tag_id = t.id
-            WHERE at.article_id = a.id
-          ),
-          '[]'::json
-        ) AS tags
-      FROM articles AS a
-      LEFT JOIN permalinks AS p ON p.id = a.primary_permalink_id
-      JOIN content_types AS c ON c.id = a.content_type_id
-      JOIN form_factors AS f ON f.id = c.form_factor_id
-      WHERE a.id = ANY($1::int[]);
-
-  user:
-    createUser:
-      description: Create a new user
-      query: |
-        INSERT INTO people (
-          username, displayname, realm_id, isauthor, info
-        ) VALUES (
-          $1::STRING,
-          $2::STRING,
-          (SELECT id FROM realms WHERE name = $3::STRING),
-          $4::BOOLEAN,
-          '{}'
-        ) RETURNING id;
-    getUser:
-      # Conventionally, getX gets X by its name, while getXById gets X by its id.
-      description: Get a user by their username
-      query: |
-        SELECT * FROM people WHERE username = $1;
-    getUserById:
-      description: Get a user by their ID
-      query: |
-        SELECT * FROM people WHERE id = $1;
+            array_agg(mapping.tag_id ORDER BY mapping.tag_id)
+                FILTER (WHERE mapping.tag_id IS NOT NULL),
+            ARRAY[]::integer[]
+        ) AS tag_ids
+      FROM (
+        SELECT DISTINCT unnest($1::integer[]) AS article_id
+      ) AS requested
+      LEFT JOIN article_tag AS mapping
+        ON mapping.article_id = requested.article_id
+      GROUP BY requested.article_id;

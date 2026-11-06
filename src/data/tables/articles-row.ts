@@ -2,22 +2,21 @@
 // The generator will NOT overwrite this file.
 // Add domain-specific methods, computed properties, and custom queries here.
 
-import type { PoolClient } from 'pg';
-import './content-types-row.js';
-import './form-factors-row.js';
-import {
-  _ArticlesRowBase,
-  ArticlesRecord,
-} from '../generated/_articles-row-base.js';
-import './media-row.js';
-import './people-row.js';
-import './permalinks-row.js';
-import './tags-row.js';
+import type { PoolClient, QueryResult } from 'pg';
+
 import {
   NormalizedResultGroupOptions,
   normalizeResultGroupOptions,
   ResultGrouper,
 } from '../../util/result-grouping.js';
+import { omit } from '../../util/tools.js';
+import {
+  _ArticlesRowBase,
+  ArticlesRecord,
+} from '../generated/_articles-row-base.js';
+import { ANY } from '../orm/pg-types.js';
+import { ReferenceData } from '../orm/reference-data.js';
+import { RelationshipArray } from '../orm/relationship-array.js';
 import {
   loadByIds,
   search,
@@ -25,10 +24,17 @@ import {
   LoadByIdsOptions as SearchToolsLoadByIdsOptions,
   WhereClause,
 } from '../orm/search-tools.js';
+import {
+  getConnection,
+  queryWithConnection,
+  returnConnection,
+} from '../query.js';
 import { ContentTypesRow } from './content-types-row.js';
-import { ANY } from '../orm/pg-types.js';
-import { ReferenceData } from '../orm/reference-data.js';
-import { omit } from '../../util/tools.js';
+import './form-factors-row.js';
+import './media-row.js';
+import './people-row.js';
+import './permalinks-row.js';
+import { TagsRow } from './tags-row.js';
 
 /**
  * Options for the `getArticlesByIds` call
@@ -58,6 +64,8 @@ function normalizeGetArticlesOptions(
 interface LoadByIdsOptions {
   connection?: PoolClient;
   ifModifiedSince?: Date;
+  /** Flush pending scalar rows before looking up relationships. */
+  onArticlesLoaded?: () => void;
 }
 
 export interface ArticlesFilter {
@@ -99,7 +107,9 @@ export class ArticlesRow extends _ArticlesRowBase {
     // TODO future feature: get from a cache
 
     // load from database
-    const loadOptions: LoadByIdsOptions = {};
+    const loadOptions: LoadByIdsOptions = {
+      onArticlesLoaded: () => grouper.flush(),
+    };
     connection && (loadOptions.connection = connection);
     if (options?.ifModifiedSince) {
       loadOptions.ifModifiedSince = options.ifModifiedSince;
@@ -264,7 +274,7 @@ export class ArticlesRow extends _ArticlesRowBase {
     cb?: (article: ArticlesRow) => void
   ): Promise<ArticlesRow[] | void> {
     const recordToRow = (record: ArticlesRecord): ArticlesRow => {
-      return new ArticlesRow(record);
+      return new ArticlesRow(record, true);
     };
 
     if (typeof options === 'function') {
@@ -272,33 +282,77 @@ export class ArticlesRow extends _ArticlesRowBase {
       options = undefined;
     }
 
-    const loadOptions: SearchToolsLoadByIdsOptions = {};
-    if (options?.connection) {
-      loadOptions.connection = options?.connection;
-    }
-    if (options?.ifModifiedSince) {
-      loadOptions.wheres = [
-        {
-          column: 'last_update',
-          type: 'timestamp',
-          operator: '>=',
-          value: options.ifModifiedSince,
-        },
-      ];
-    }
+    const ownConn: boolean = !(options?.connection);
 
-    if (cb) {
-      const loadCb = (record: ArticlesRecord): void => {
-        
-        cb && cb(recordToRow(record));
-      };
-      await loadByIds<ArticlesRecord>('articles', ids, loadOptions, loadCb);
-    } else {
-      return loadByIds<ArticlesRecord>('articles', ids, loadOptions).then(
-        (records: ArticlesRecord[]) => {
-          return records.map((r) => recordToRow(r));
+    const loadOptions: SearchToolsLoadByIdsOptions = {};
+    try {
+      loadOptions.connection = options?.connection ?? (await getConnection());
+
+      if (options?.ifModifiedSince) {
+        loadOptions.wheres = [
+          {
+            column: 'last_update',
+            type: 'timestamp',
+            operator: '>=',
+            value: options.ifModifiedSince,
+          },
+        ];
+      }
+
+      // Send scalar data immediately in callback mode; otherwise collect it.
+      let articleRows: ArticlesRow[] = [];
+      if (cb) {
+        const loadCb = (record: ArticlesRecord): void => {
+          const row = recordToRow(record);
+          articleRows.push(row);
+          cb(row);
+        };
+        await loadByIds<ArticlesRecord>('articles', ids, loadOptions, loadCb);
+      } else {
+        const records = await loadByIds<ArticlesRecord>(
+          'articles', ids, loadOptions
+        );
+        articleRows = records.map(recordToRow);
+      }
+
+      // Deliver any grouped scalar rows before starting the tag query.
+      options?.onArticlesLoaded?.();
+
+      // Query only loaded articles, including empty tag lists for removals.
+      if (articleRows.length > 0) {
+        const articlesById = new Map(
+          articleRows.map((row) => [row.id.value, row])
+        );
+        const tagsRs: QueryResult<{
+          article_id: number;
+          tag_ids: number[];
+        }> = await queryWithConnection(
+          { connection: loadOptions.connection, allowHardcoded: false },
+          'article.getTagIds',
+          [articleRows.map((row) => row.id.value)]
+        );
+        for (const { article_id, tag_ids } of tagsRs.rows) {
+          const article = articlesById.get(article_id);
+          if (article) {
+            const row = cb
+              ? new ArticlesRow({ id: article_id }, true)
+              : article;
+            row._relationships.set(
+              'tags',
+              new RelationshipArray(
+                tag_ids.map((id) => new TagsRow({ id }, true))
+              )
+            );
+            if (cb) cb(row);
+          }
         }
-      );
+      }
+
+      if (!cb) return articleRows;
+    } finally {
+      if (ownConn && loadOptions.connection) {
+        returnConnection(loadOptions.connection);
+      }
     }
   }
 }

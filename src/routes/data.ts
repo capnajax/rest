@@ -250,7 +250,7 @@ async function handleArticleObjects(
       const write = out.object(
         'article',
         articles.map((a: ArticlesRow): ObjectPatch => {
-          return a.exportRecord() as ObjectPatch;
+          return a.toJSON() as ObjectPatch;
         })
       );
 
@@ -538,7 +538,15 @@ export async function getArticleObjects(
     await ArticlesRow.getArticlesByIds(
       ids,
       (articles) => {
-        records.push(...articles.map((article) => article.exportRecord()));
+        for (const article of articles) {
+          const patch = article.toJSON() as ObjectPatch;
+          const existing = records.find((record) => record.id === patch.id);
+          if (existing) {
+            Object.assign(existing, patch);
+          } else {
+            records.push(patch);
+          }
+        }
       },
       options
     );

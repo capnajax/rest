@@ -1,6 +1,8 @@
 # ORM Runtime Library
 
-A lightweight, hand-rolled data layer for PostgreSQL. No third-party ORM dependencies — just `pg` and TypeScript.
+A lightweight, hand-rolled data layer for PostgreSQL. No third-party ORM
+dependencies. The runtime uses `pg`, and streaming searches use
+`pg-query-stream`.
 
 ---
 
@@ -8,15 +10,18 @@ A lightweight, hand-rolled data layer for PostgreSQL. No third-party ORM depende
 
 ### Column-level state
 
-Every scalar column on a row is wrapped in a `Column<T>` instance. The column tracks three states internally using an `UNSET` sentinel symbol:
+Every scalar column on a row is wrapped in a `Column<T>` instance. The column
+tracks three states internally using an `UNSET` sentinel symbol:
 
-| State   | Meaning                                                                            |
-| ------- | ---------------------------------------------------------------------------------- |
-| `UNSET` | Column was not included in the `SELECT`, or is on a new row with no value assigned |
-| `null`  | Column was loaded and its database value is `NULL`                                 |
-| `T`     | Column was loaded and has a value                                                  |
+| State | Meaning |
+| --- | --- |
+| `UNSET` | Never selected or assigned |
+| `null` | Database `NULL`, or an assigned null |
+| `T` | A loaded or assigned value |
 
-This makes `null` (a real database value) unambiguous from "not loaded". Accessing `.value` on an unloaded column throws immediately rather than silently returning `undefined`.
+This makes `null` (a real database value) unambiguous from "not loaded".
+Accessing `.value` on an unloaded column throws immediately rather than silently
+returning `undefined`.
 
 ```typescript
 row.body.isLoaded; // false if column was not in the SELECT
@@ -25,35 +30,48 @@ row.body.isDirty; // true if current value differs from original
 row.body.original; // the value as it came from the DB
 ```
 
-Setting a value always succeeds and marks the column dirty:
+Setting a mutable column makes it dirty when its value differs from its
+original value. Setting it back clears the dirty state. Primary keys reject
+assignment once hydrated; other columns can also be marked immutable:
 
 ```typescript
 row.title.value = 'New title'; // marks dirty
-row.isDirty(); // true
+row.isDirty(); // true if the title differs from its original value
 ```
 
 ### Partial loading
 
-Queries only need to load the columns they need. Unloaded columns stay `UNSET`. The three named column sets provide a consistent API:
+Queries only need to load the columns they need. Unloaded columns stay `UNSET`.
+The three named column sets provide a consistent API:
 
-| Method          | Scalar columns                      | Array relationships             |
-| --------------- | ----------------------------------- | ------------------------------- |
-| `loadSummary()` | `id`, `name`, `title`, `created_at` | never                           |
-| `loadSimple()`  | all scalars                         | those marked `loadWith: simple` |
-| `loadAll()`     | all scalars                         | all relationships               |
+| Method | Scalars | Array relationships |
+| --- | --- | --- |
+| `loadSummary()` | Conventional summary columns | None |
+| `loadSimple()` | All | `loadWith: simple` |
+| `loadAll()` | All | All configured arrays |
 
-`summary` columns are fixed by convention. `simple` is the default for most operations. `all` is explicit when you need heavy data (media, attachments, etc.).
+`summary` selects `id`, `name`, `title` and `created_at` when they exist.
+`simple` is the default for most operations. `all` is explicit when you need
+heavy data (media, attachments, etc.).
 
 ### Dirty tracking
 
-`row.isDirty()` checks all scalar columns and all relationship arrays. Dirty columns are committed (original = current) on a successful `save()`.
+`row.isDirty()` checks scalar changes and array membership changes. It does
+not inspect changes inside related rows. Tracking uses strict equality, so
+replace a `Date` or object value rather than mutating it in place.
+
+A successful `save()` resets the row's scalar and array baselines. With a
+caller-owned transaction, this happens before the outer transaction commits;
+a later rollback does not restore in-memory state. Reload or recreate affected
+rows after a rollback.
 
 ### Single-object relationships
 
 Foreign keys targeting a table in `referenceTables` automatically generate
 `kind: single`, `loadWith: simple` relationships from database constraints.
 `content_type_id` becomes `content_type`; names without `_id` get a `_ref`
-suffix. This also works between reference tables (e.g. `content_type.form_factor`).
+suffix. This also works between reference tables (e.g.
+`content_type.form_factor`).
 Single-column foreign keys to other unique columns are resolved using the
 referenced column. Composite foreign keys are unsupported and cause a generation
 error. Property-name collisions require an explicit name in configuration.
@@ -61,7 +79,6 @@ error. Property-name collisions require an explicit name in configuration.
 Explicit single relationships for the same local FK override inferred ones.
 Other relationships still require configuration. Apply schema migrations before
 regenerating: a column name alone does not establish a foreign-key relationship.
-Migration `1.2.1` adds the previously missing articles/content_types constraint.
 
 Use `kind: single` when the foreign key lives on the current row. This covers
 many-to-one and one-to-one relationships; a database UNIQUE constraint on the
@@ -86,7 +103,8 @@ The generator determines whether the target is preloaded from `referenceTables`:
 - Dynamic targets load with `loadSimple()` / `loadAll()` according to `loadWith`
   (default: `simple`), or explicitly with `loadRelationship(name, connection?)`.
   Each single target uses one query for its scalar columns, without recursively
-  loading its relationships. Explicit loads refresh the target from the database.
+  loading its relationships. Explicit loads refresh the target from the
+database.
 
 ```typescript
 article.content_type?.name.value; // Shared, immutable startup row; no query.
@@ -99,7 +117,8 @@ await article.loadRelationship('primary_permalink'); // Load the new target.
 ```
 
 Getters return `undefined` when the FK or dynamic target has not been loaded,
-`null` for a null FK or missing target, and a row otherwise. JSON includes resolved
+`null` for a null FK or missing target, and a row otherwise. JSON includes
+resolved
 single objects (or null), omits unloaded ones, and retains the scalar FK column.
 Changing an FK makes a previously loaded target unavailable until reloaded;
 reference getters immediately resolve the new key against the startup snapshot.
@@ -108,11 +127,13 @@ A parent hydration also clears loaded dynamic single targets.
 Single getters are read-only navigation properties. Assign the scalar FK to
 change the relationship. Saving or deleting the owner never saves or deletes a
 single target; save an edited dynamic target explicitly. Custom bulk queries
-resolve reference getters automatically, but must explicitly load dynamic targets.
+resolve reference getters automatically, but must explicitly load dynamic
+targets.
 
 ### Array relationships
 
-Related rows are held in `RelationshipArray<T>`, which tracks additions and removals explicitly:
+Related rows are held in `RelationshipArray<T>`, which tracks additions and
+removals explicitly:
 
 ```typescript
 article.tags?.add(tag); // adds to pending changes
@@ -122,7 +143,20 @@ article.tags?.added; // rows added since load
 article.tags?.removed; // rows removed since load
 ```
 
-Mutations are explicit — no array index interception. This keeps tracking predictable.
+Read the collection through `.items` (a read-only array). Membership uses object
+identity: removing a different instance with the same ID has no effect.
+An unloaded relationship is `undefined`; optional chaining silently skips a
+mutation in that case. Load it first when the mutation is required:
+
+```typescript
+await article.loadRelationship('tags');
+article.tags!.add(tag);
+await article.save();
+```
+
+Loading an array again replaces its contents and pending membership changes.
+Array targets are loaded at summary level, even through `loadAll()`; load a
+child explicitly when you need its other columns.
 
 ---
 
@@ -136,24 +170,35 @@ The base for all generated editable row classes. Provides:
 - `isDirty(): boolean` — any scalar or relationship changed
 - `loadSummary() / loadSimple() / loadAll()` — defined on the generated subclass
 - `save()` — INSERT if new, UPDATE dirty columns if not; wraps in a transaction
-- `delete()` — hard delete; cleans up link rows and recursively deletes direct-FK children if loaded, otherwise relies on database CASCADE
+- `delete()` — hard delete; cleans up link rows and recursively deletes
+  direct-FK children if loaded, otherwise relies on database CASCADE
+
+`save()` processes arrays only when their membership is dirty. Editing an
+existing child alone does not trigger a cascading save; save that child
+explicitly. Link targets that already exist are not saved by the owner.
 
 **save() behaviour by relationship kind:**
 
-| Relationship | Added item (new)          | Added item (existing) | Removed item     |
-| ------------ | ------------------------- | --------------------- | ---------------- |
-| Direct FK    | INSERT child, set FK      | UPDATE child if dirty | DELETE child row |
-| Link table   | INSERT related row + link | INSERT link only      | DELETE link only |
+| Kind | Added new row | Added existing row | Removed row |
+| --- | --- | --- | --- |
+| Direct FK | Set FK, save child | Set FK, save child | Delete child |
+| Link table | Save target, add link | Add link | Delete link |
 
 ### `ImmutableRow` (reference tables)
 
-The base for reference-table row classes. No `save()`, no `delete()`, no dirty tracking. Columns are `ImmutableColumn<T>` with no setter. Rows are constructed by `_fromRecord()` and never modified after that.
+The base for reference-table row classes. No `save()`, no `delete()`, no dirty
+tracking. Columns are
+`ImmutableColumn<T>` instances that reject value assignment after loading. Rows
+are constructed by `_fromRecord()` and never modified after that.
 
 ---
 
 ## Reference tables
 
-Reference tables (small, immutable lookup tables like statuses or media types) are loaded once at application startup and held for the lifetime of the process. The word "cache" is avoided deliberately — there is no liveness, no expiry, no invalidation.
+Reference tables (small, immutable lookup tables like statuses or media types)
+are loaded once at application startup and held for the lifetime of the process.
+The word "cache" is avoided deliberately — there is no liveness, no expiry, no
+invalidation.
 
 ```typescript
 // At startup (call once, before handling requests)
@@ -165,16 +210,24 @@ const draft = ReferenceData.byName(StatusRow, 'draft');
 const status = ReferenceData.byId(StatusRow, 3);
 ```
 
-`ReferenceData.initialize()` queries every registered reference table. Public reference-table row modules call `ReferenceData.register()` at module load time. Import the generated barrel before initialization to register every public reference row class. The snapshot contains instances of those public classes, including their custom methods.
+`ReferenceData.initialize()` queries every registered reference table. Public
+reference-table row modules call `ReferenceData.register()` at module load time.
+Import the generated barrel before initialization to register every public
+reference row class. The snapshot contains instances of those public classes,
+including their custom methods.
 
 ---
 
 ## Row registry
 
-`MutableRow._loadRelationship()` needs to instantiate related row classes by table name at runtime, without importing them directly (which would create circular dependencies across generated files). The `RowRegistry` solves this:
+`MutableRow._loadRelationship()` needs to instantiate related row classes by
+table name at runtime, without importing them directly (which would create
+circular dependencies across generated files). The `RowRegistry` solves this:
 
-- Generated mutable files call `registerRow('table_name', MyRowBase)` at module load time.
-- The registry maps table name → constructor and is used internally during relationship loading.
+- Generated mutable files call `registerRow('table_name', MyRowBase)` at module
+  load time.
+- The registry maps table name → constructor and is used internally during
+  relationship loading.
 - Application code never touches the registry directly.
 
 ---
@@ -191,29 +244,34 @@ orm/
   reference-data.ts     ReferenceData — startup loader and accessors
   row-registry.ts       Maps table names to constructors at runtime
   types.ts              Shared types (ColumnSets, RelationshipDef, etc.)
-  index.ts              Barrel export
+  pg-types.ts           PostgreSQL parameter types and operators
+  pg/                   PostgreSQL type validation helpers
+  search-tools.ts       Parameterised searches and ID batch loading
+  index.ts              Core runtime barrel export
 ```
 
 ---
 
 ## Working with generated classes
 
-Generated files live in `src/data/generated/` and should never be edited. To add domain behaviour, create an extension class in `src/data/tables/`:
+Generated files live in `src/data/generated/` and should never be edited. To add
+domain behaviour, create an extension class in `src/data/tables/`:
 
 ```typescript
-// src/data/tables/article-row.ts
-import { _ArticleRowBase } from '../generated/_article-row-base.ts';
+// src/data/tables/articles-row.ts
+import { _ArticlesRowBase } from '../generated/_articles-row-base.js';
 
-export class ArticleRow extends _ArticleRowBase {
-  get isPublished(): boolean {
-    return this.status.value === 'published';
-  }
-
-  static async findPublished(): Promise<ArticleRow[]> {
-    // custom query using sqlQuery() from data/query.ts
+export class ArticlesRow extends _ArticlesRowBase {
+  get isVisible(): boolean {
+    return this.is_hidden.value === false;
   }
 }
 ```
+
+Inherited static factories currently construct generated base instances.
+Dynamic relationship loading also uses registered base constructors, so custom
+extension methods are not available on those results. Construct your public
+extension explicitly from a database record when its methods are required.
 
 The generated base is regenerated freely. Your extension file is stable.
 
@@ -221,7 +279,8 @@ The generated base is regenerated freely. Your extension file is stable.
 
 ## Transactions
 
-All `save()` and `delete()` calls accept an optional `PoolClient`. Pass one to participate in an external transaction:
+Load methods, `save()` and `delete()` accept an optional `PoolClient`. Pass one
+to participate in an external transaction:
 
 ```typescript
 const conn = await getConnection();
@@ -238,7 +297,8 @@ try {
 }
 ```
 
-For convenience, use the `inTransaction()` helper function which handles all the boilerplate:
+For convenience, use the `inTransaction()` helper function which handles all the
+boilerplate:
 
 ```typescript
 import { inTransaction } from '../query.js';
@@ -260,21 +320,23 @@ The `inTransaction()` function automatically:
 - Returns the connection to the pool
 - Re-throws any errors from your callback
 
-## Working with Rows
+## Working with rows
 
-### Loading a Single Row
+### Loading a single row
 
-To load an existing row from the database, use the static factory methods on the row class:
+To load an existing row from the database, use the static factory methods on the
+row class:
 
 ```typescript
 // Load by primary key (returns null if not found)
 const article = await ArticlesRow.findById(123);
 
-// Load by name column (if available, returns null if not found)
-const user = await PeopleRow.findByName('john_doe');
+// Only use findByName() on tables with an actual name column.
+const permalink = await PermalinksRow.findByName('my-article');
 ```
 
-Alternatively, create a new instance, set the primary key, and call a load method:
+Alternatively, create a new instance, set the primary key, and call a load
+method:
 
 ```typescript
 const article = new ArticlesRow();
@@ -283,27 +345,64 @@ await article.loadSimple(); // Loads scalar columns + simple relationships
 // or await article.loadAll();  // Loads everything
 ```
 
-### Loading Multiple Rows
+The instance load methods throw if the row is missing. They refresh selected
+columns, including any unsaved values for those columns; they do not just fill
+unloaded columns. `loadColumns()` defaults to `summary` and also accepts
+`'simple'` or `'all'`.
 
-For loading multiple rows, use the query system with `sqlQuery()` or predefined queries from `queries.yaml`:
+### Loading multiple rows
+
+`query()` runs named queries from `src/data/queries.yaml` and returns an array
+of plain records. `sqlQuery()` returns a PostgreSQL `QueryResult`, whose
+records are in `.rows`. Neither constructs ORM instances or loads relationships.
+For example, `user.getUser` looks up `people.username`, not a `name` column:
 
 ```typescript
-import { sqlQuery } from '../query.js';
+import { query } from '../query.js';
+import { PeopleRow } from '../tables/people-row.js';
 
-// Load all articles
-const result = await sqlQuery('SELECT * FROM articles');
-const articles = result.rows.map((row) => {
-  const article = new ArticlesRow();
-  article._hydrate(row);
-  article._markLoaded();
-  return article;
-});
-
-// Using a predefined query
-const userRows = await query('user.getUser', ['john_doe']);
+const records = await query('user.getUser', ['john_doe']);
+const users = records.map((record) => new PeopleRow(record, true));
 ```
 
-### Creating a New Row (New Object)
+For parameterised searches, import helpers directly from `search-tools.js`:
+
+```typescript
+import type { ArticlesRecord } from '../generated/_articles-row-base.js';
+import { loadByIds, search } from './search-tools.js';
+import { ArticlesRow } from '../tables/articles-row.js';
+
+const records = await loadByIds<ArticlesRecord>('articles', [123, 456]);
+const articles = records.map((record) => new ArticlesRow(record, true));
+
+const visibleRecords = await search<ArticlesRecord>(
+  'articles',
+  [{ column: 'is_hidden', type: 'bool', value: false }],
+  {
+    columns: ['id', 'title'],
+    orderBy: { column: 'id', direction: 'ASC' },
+    limit: 20,
+    offset: 0,
+  }
+);
+```
+
+`search()` joins conditions with `AND`. Empty conditions select without a
+`WHERE` clause; omitted or empty `columns` select all scalars. Values are
+parameterised, but table names, column names, ordering and SQL fragments must
+come from trusted application code. Include the primary key when constructing
+an existing row from partial results.
+
+Both helpers accept an optional caller-owned `connection` in their options.
+`loadByIds()` also accepts additional `wheres`; an empty ID list skips the
+query.
+Neither helper guarantees input-ID order.
+
+Both support a final callback instead of returning an array. This streams
+records and resolves with `void`; callback promises are not awaited. Convert
+records to row instances with `new ArticlesRow(record, true)` as needed.
+
+### Creating a new row
 
 To create a new row that doesn't exist in the database yet:
 
@@ -316,30 +415,19 @@ newArticle.author_id.value = 1;
 newArticle.content_type_id.value = 1;
 newArticle.uuid.value = 'unique-uuid-here';
 
-// Optional: set relationships
-// newArticle.tags?.add(existingTag);
-
 // Save to database (performs INSERT)
 await newArticle.save();
 ```
 
-You can also initialize with default values:
+Assign new values through column setters so they are included in the INSERT.
+Unassigned columns use database defaults. Constructor `initialData` is hydrated
+as clean even when `assumeFromDb` is false, so it should not be used to supply
+new INSERT values.
 
-```typescript
-const newArticle = new ArticlesRow({
-  title: 'My New Article',
-  author_id: 1,
-  content_type_id: 1,
-  uuid: 'unique-uuid-here',
-});
+### Working with an existing row
 
-// Values are set but marked as dirty (will be included in INSERT)
-await newArticle.save();
-```
-
-### Creating a Row Instance for an Existing Object (Primary Key Known)
-
-When you know the primary key of an existing database row and want to work with it:
+When you know the primary key of an existing database row and want to work with
+it:
 
 ```typescript
 const existingArticle = new ArticlesRow();
@@ -353,7 +441,7 @@ existingArticle.assumeClean('title', 'Existing Title');
 existingArticle.assumeClean('author_id', 1);
 
 // Load any additional data you need
-await existingArticle.loadSimple(); // Loads remaining columns + relationships
+await existingArticle.loadSimple(); // Refreshes simple columns + relationships
 
 // Now you can modify and save
 existingArticle.title.value = 'Updated Title'; // This will be dirty
@@ -378,27 +466,46 @@ const existingArticle = new ArticlesRow(dbData, true); // true = assume from DB
 
 // Row is marked as loaded, values are clean
 // Load any additional data you need
-await existingArticle.loadSimple(); // Loads remaining columns + relationships
+await existingArticle.loadSimple(); // Refreshes simple columns + relationships
 ```
 
-Note: For existing rows, it's often more convenient to use `findById()` which handles the loading in one step. Use these approaches when you want to avoid loading data you already know.
+`assumeClean()` changes a column baseline but does not mark the row as existing.
+A primary key alone also leaves `isNew` true. Complete a successful load or use
+`new ArticlesRow(dbData, true)` before saving an existing row.
 
-## Runtime Type Checking
+For existing rows, it's often more convenient to use `findById()` which handles
+the loading in one step. Use these approaches when you want to avoid loading
+data you already know.
 
-When hydrating rows from database results or initializing with data, the ORM performs runtime type validation to ensure data integrity:
+## Serialisation and record export
+
+`row.toJSON()` (also used by `JSON.stringify()`) emits scalar values, loaded
+arrays and resolved single relationships. Unset scalars and unloaded
+relationships are omitted. This includes all loaded columns, so select or map
+fields explicitly before returning data through an API.
+
+Generated mutable rows also expose `exportRecord()`. It returns scalar columns
+whose `isLoaded` flag is true, requires a loaded primary key and omits
+relationships. A value assigned to a previously unloaded column is included in
+JSON but excluded from `exportRecord()` until it gains a database baseline.
+
+## Runtime type checking
+
+When hydrating rows from database results or initializing with data, the ORM
+performs runtime type validation to ensure data integrity:
 
 ```typescript
 // This will throw an error if title is not a string or null
 const article = new ArticlesRow({ title: 'Valid Title' });
 
 // This will throw an error if id is not a number
-const article = new ArticlesRow({ id: 'not-a-number' }, true);
+const article = new ArticlesRow({ id: 'bad' }, true);
 
 // Type validation happens during hydration from database queries too
 await article.loadSimple(); // Validates all loaded column types
 ```
 
-### Supported Types
+### Supported types
 
 The ORM validates these TypeScript types at runtime:
 
@@ -406,15 +513,18 @@ The ORM validates these TypeScript types at runtime:
 - `string` - validates string values
 - `boolean` - validates boolean values
 - `Date` - validates Date instances
-- `Record<string, unknown>` - validates plain objects (not arrays or null)
+- `Record<string, unknown>` - validates objects (not arrays or null)
 - Nullable variants: `number | null`, `string | null`, etc.
 
-### Error Handling
+### Error handling
 
 Type validation errors throw descriptive errors:
 
 ```text
-Type validation failed for column 'id': expected valid type, got string (not-a-number)
+Type validation failed for column 'id': expected valid type, got string (bad)
 ```
 
-This helps catch data corruption or malformed API inputs early in development.
+Validation runs during hydration, including constructor data and database
+loads. Column setters and `assumeClean()` do not run these validators; validate
+external inputs before assigning them. Object validation checks for a non-null,
+non-array object, rather than enforcing a particular object schema.

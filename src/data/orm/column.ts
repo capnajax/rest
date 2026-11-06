@@ -98,11 +98,10 @@ export class Column<T> {
   // ── Internal lifecycle ────────────────────────────────────────────────────
 
   /**
-   * Called by BaseRow._hydrate(). Passing undefined means the column was not
+   * Called by BaseRow.hydrate(). Passing undefined means the column was not
    * present in the query result and should remain UNSET.
-   * @internal
    */
-  _hydrate(value: T | null | undefined): void {
+  hydrate(value: T | null | undefined): void {
     if (value === undefined) return;
 
     // Validate type at runtime if validator is provided

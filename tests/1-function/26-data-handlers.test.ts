@@ -95,7 +95,7 @@ test('article handler waits for writes and forwards normalised input', async () 
         options?.ifModifiedSince?.toISOString(),
         since.toISOString()
       );
-      callback([{ exportRecord: () => ({ id: 7 }) } as ArticlesRow]);
+      callback([{ toJSON: () => ({ id: 7 }) } as ArticlesRow]);
     }
   );
   result.response.sendChunk = async (value) => {
@@ -345,7 +345,7 @@ for (const since of [
           ? { ifModifiedSince: new Date(timestamp) }
           : {});
         for (const record of expected) {
-          callback([{ exportRecord: () => record } as ArticlesRow]);
+          callback([{ toJSON: () => record } as ArticlesRow]);
         }
       }
     );
@@ -443,3 +443,76 @@ test('GET important tags returns only important records', async () => {
     query.mock.restore();
   }
 });
+
+for (const mode of ['stream', 'combined', 'get'] as const) {
+  test(`article tags survive the complete response path (${mode})`, async () => {
+    const previousUrl = parsedArgs.dbUrl;
+    parsedArgs.dbUrl = 'postgres://unused/article-tags-response-test';
+    let released = 0;
+    let tagQueries = 0;
+    const records = [{ id: 7, title: 'Seven' }, { id: 8, title: 'Eight' }];
+    const result = makeResponse();
+    const connection = {
+      query(sql: unknown, parameters: unknown[]) {
+        if (typeof sql !== 'string') {
+          return (async function* () { yield* records; })();
+        }
+        assert.match(sql, /array_agg/);
+        assert.deepEqual(parameters, [[7, 8]]);
+        tagQueries++;
+        if (mode === 'stream') {
+          // Articles must be sent before this query even begins.
+          assert.equal(result.messages.length, 1);
+          const first = JSON.parse(result.messages[0]);
+          assert.deepEqual(first.objects[0].records, records);
+        }
+        return Promise.resolve({ rows: [
+          { article_id: 7, tag_ids: [3, 5] },
+          { article_id: 8, tag_ids: [] },
+        ] });
+      },
+      release() { released++; },
+    };
+    const connect = mock.method(
+      Pool.prototype, 'connect', async () => connection
+    );
+    try {
+      if (mode === 'get') {
+        await getArticleObjects(makeArticleRequest('7,8'), result.response);
+      } else {
+        await createPresetDataHandler({
+          objects: { articles: [7, 8] },
+          options: { stream: mode === 'stream' },
+        })({} as Request, result.response);
+      }
+      assert.equal(result.state.statusCode, 200);
+      assert.equal(tagQueries, 1);
+      if (mode === 'stream') {
+        assert.equal(result.messages.length, 2);
+        const first = JSON.parse(result.messages[0]);
+        assert.equal(first.objects[0].records[0].tags, undefined);
+      }
+      assert.equal(released, 1);
+      const articles = result.messages.flatMap((message) =>
+        JSON.parse(message).objects.flatMap(
+          (batch: { records: Record<string, unknown>[] }) => batch.records
+        )
+      );
+      for (const [id, tags] of [[7, [{ id: 3 }, { id: 5 }]], [8, []]]) {
+        const article = articles.findLast(
+          (row: Record<string, unknown>) => row.id === id
+        );
+        assert.ok(article);
+        assert.deepEqual(article.tags, tags);
+        if (mode === 'stream') {
+          assert.deepEqual(Object.keys(article).sort(), ['id', 'tags']);
+        } else {
+          assert.equal(article.title, id === 7 ? 'Seven' : 'Eight');
+        }
+      }
+    } finally {
+      parsedArgs.dbUrl = previousUrl;
+      connect.mock.restore();
+    }
+  });
+}
