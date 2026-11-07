@@ -36,7 +36,7 @@ COPY --chown=nodejs:nodejs package*.json ./
 RUN npm install --omit=dev
 
 # Copy built files
-COPY --from=builder /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 
 EXPOSE 1661
 

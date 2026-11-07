@@ -4,6 +4,8 @@ queries:
     getTagIds: |2
       SELECT
         requested.article_id,
+        permalink.name AS permalink,
+        permalink.id AS permalink_id,
         COALESCE(
             array_agg(mapping.tag_id ORDER BY mapping.tag_id)
                 FILTER (WHERE mapping.tag_id IS NOT NULL),
@@ -12,6 +14,10 @@ queries:
       FROM (
         SELECT DISTINCT unnest($1::integer[]) AS article_id
       ) AS requested
+      LEFT JOIN articles AS article
+        ON article.id = requested.article_id
+      LEFT JOIN permalinks AS permalink
+        ON permalink.id = article.primary_permalink_id
       LEFT JOIN article_tag AS mapping
         ON mapping.article_id = requested.article_id
-      GROUP BY requested.article_id;
+      GROUP BY requested.article_id, permalink.id, permalink.name;

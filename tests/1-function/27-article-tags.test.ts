@@ -13,7 +13,15 @@ after(() => resetLogger());
 for (const streaming of [false, true]) {
   test(`article tags are loaded as clean rows (streaming=${streaming})`,
     async () => {
-      const records = [{ id: 7, title: 'Seven' }, { id: 8, title: 'Eight' }];
+      const records = [
+        { id: 7, title: 'Seven', primary_permalink_id: 17 },
+        { id: 8, title: 'Eight', primary_permalink_id: null },
+      ];
+      const permalink = { id: 17, name: 'seven' };
+      const relationships = [
+        { primary_permalink_id: 17, primary_permalink: permalink },
+        { primary_permalink_id: null, primary_permalink: null },
+      ];
       let calls = 0;
       const connection = {
         query(sql: unknown, parameters: unknown[]) {
@@ -24,8 +32,10 @@ for (const streaming of [false, true]) {
           if (sql.includes('array_agg')) {
             assert.deepEqual(parameters, [[7, 8]]);
             return Promise.resolve({ rows: [
-              { article_id: 8, tag_ids: [] },
-              { article_id: 7, tag_ids: [3, 5] },
+              { article_id: 8, tag_ids: [],
+                permalink_id: null, permalink: null },
+              { article_id: 7, tag_ids: [3, 5],
+                permalink_id: 17, permalink: 'seven' },
             ] });
           }
           return Promise.resolve({ rows: records });
@@ -44,9 +54,10 @@ for (const streaming of [false, true]) {
       if (streaming) {
         assert.equal(rows, undefined);
         assert.deepEqual(messages, [
-          ...records,
-          { id: 8, tags: [] },
-          { id: 7, tags: [{ id: 3 }, { id: 5 }] },
+          records[0],
+          { ...records[1], primary_permalink: null },
+          { id: 8, tags: [], ...relationships[1] },
+          { id: 7, tags: [{ id: 3 }, { id: 5 }], ...relationships[0] },
         ]);
         assert.notEqual(received[0], received[3]);
         assert.notEqual(received[1], received[2]);
@@ -59,8 +70,9 @@ for (const streaming of [false, true]) {
         assert.ok(rows);
         received.push(...rows);
         assert.deepEqual(JSON.parse(JSON.stringify(rows)), [
-          { ...records[0], tags: [{ id: 3 }, { id: 5 }] },
-          { ...records[1], tags: [] },
+          { ...records[0], tags: [{ id: 3 }, { id: 5 }],
+            ...relationships[0] },
+          { ...records[1], tags: [], ...relationships[1] },
         ]);
       }
       for (const row of received) {
@@ -69,6 +81,10 @@ for (const streaming of [false, true]) {
         if (row.tags) {
           // The generated article base inherits relationship serialisation.
           assert.deepEqual(row.toJSON().tags, [...row.tags.items]);
+        }
+        if (row.primary_permalink) {
+          assert.equal(row.primary_permalink.isNew, false);
+          assert.equal(row.primary_permalink.isDirty(), false);
         }
         for (const tag of row.tags?.items ?? []) {
           assert.ok(tag instanceof TagsRow);

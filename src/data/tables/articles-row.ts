@@ -33,7 +33,7 @@ import { ContentTypesRow } from './content-types-row.js';
 import './form-factors-row.js';
 import './media-row.js';
 import './people-row.js';
-import './permalinks-row.js';
+import { PermalinksRow } from './permalinks-row.js';
 import { TagsRow } from './tags-row.js';
 
 /**
@@ -326,12 +326,15 @@ export class ArticlesRow extends _ArticlesRowBase {
         const tagsRs: QueryResult<{
           article_id: number;
           tag_ids: number[];
+          permalink: string | null;
+          permalink_id: number | null;
         }> = await queryWithConnection(
           { connection: loadOptions.connection, allowHardcoded: false },
           'article.getTagIds',
           [articleRows.map((row) => row.id.value)]
         );
-        for (const { article_id, tag_ids } of tagsRs.rows) {
+        for (const row of tagsRs.rows) {
+          const { article_id, tag_ids, permalink, permalink_id } = row;
           const article = articlesById.get(article_id);
           if (article) {
             const row = cb
@@ -343,6 +346,13 @@ export class ArticlesRow extends _ArticlesRowBase {
                 tag_ids.map((id) => new TagsRow({ id }, true))
               )
             );
+            row.assumeClean('primary_permalink_id', permalink_id);
+            row._singleRelationships.set('primary_permalink', {
+              foreignKey: permalink_id,
+              row: permalink_id === null ? null : new PermalinksRow(
+                { id: permalink_id, name: permalink }, true
+              ),
+            });
             if (cb) cb(row);
           }
         }

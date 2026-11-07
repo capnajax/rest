@@ -99,7 +99,9 @@ export function articleRoutes(app: Application<AppMeta>) {
         out.end();
       })
       .catch((err) => {
-        log.error('Error loading articles by IDs:', err);
+        log.error('Error loading articles by IDs: %s',
+          err instanceof Error ? err.stack ?? err.message : String(err)
+        );
         res.status(500).json({ error: 'Failed to load articles by IDs' });
       });
   });

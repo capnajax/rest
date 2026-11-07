@@ -33,7 +33,7 @@ export abstract class MutableRow {
   /** Relationship arrays indexed by relationship name — set by _loadRelationship(). */
   protected readonly _relationships = new Map<string, RelationshipArray<any>>();
 
-  private readonly _singleRelationships = new Map<
+  protected readonly _singleRelationships = new Map<
     string,
     { foreignKey: unknown; row: MutableRow | null }
   >();
