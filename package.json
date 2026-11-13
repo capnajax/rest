@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "postbuild": "mkdir -p dist/data/schema && cp -r src/data/schema/* dist/data/schema/ && cp src/data/queries.yaml dist/data/queries.yaml",
+    "postbuild": "mkdir -p dist/data/schema dist/routes/data-contracts && cp -r src/data/schema/* dist/data/schema/ && cp src/data/queries.yaml dist/data/queries.yaml && cp src/routes/data-contracts/mime-types.yaml dist/routes/data-contracts/",
     "start": "node dist/index.js",
     "test": "node --import tsx --test --experimental-test-coverage tests/**/*.test.ts",
     "test:watch": "node --import tsx --test --watch tests/**/*.test.ts",
@@ -24,10 +24,10 @@
     "docker:down": "docker-compose down"
   },
   "dependencies": {
-    "@filamentjs/rate-limiting": "^0.1.1",
-    "@filamentjs/request-logging": "^0.1.0",
+    "@filamentjs/rate-limiting": "^0.6.1",
+    "@filamentjs/request-logging": "^0.6.1",
     "args-and-envs": "^0.4.3",
-    "filamentjs": "^0.6.0",
+    "filamentjs": "^0.6.1",
     "ipaddr.js": "^2.5.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.18.0",

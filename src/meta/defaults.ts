@@ -78,3 +78,9 @@ export const SESSION_REQUIRED: Partial<AppMeta> = {
     createAnonymous: true,
   } as Partial<AppMeta>['sessionPolicy'],
 };
+
+export const LOG_ERRORS: Partial<AppMeta> = {
+  logging: {
+    level: 'error'
+  }
+};

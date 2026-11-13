@@ -3,6 +3,7 @@
 
 import { Column, TypeValidators } from '../orm/column.js';
 import { ImmutableRow } from '../orm/immutable-row.js';
+import { ReferenceData }   from '../orm/reference-data.js';
 
 
 // ── Schema interface ───────────────────────────────────────────────────────

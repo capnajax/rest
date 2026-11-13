@@ -21,3 +21,23 @@ queries:
       LEFT JOIN article_tag AS mapping
         ON mapping.article_id = requested.article_id
       GROUP BY requested.article_id, permalink.id, permalink.name;
+  permalink:
+    getPermalink: |2
+      SELECT * FROM permalinks WHERE name = $1::text;
+  media:
+    getMedia: |2
+      SELECT
+        id,
+        article_id,
+        attachment_num,
+        filename,
+        mime_type,
+        last_update,
+        CASE
+          WHEN $3::timestamp IS NULL OR last_update > $3::timestamp
+            THEN data_b64
+          ELSE NULL
+        END AS data_b64
+      FROM media
+      WHERE article_id = $1::integer
+        AND filename = $2::text;

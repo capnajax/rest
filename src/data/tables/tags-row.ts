@@ -6,11 +6,6 @@ import type { PoolClient } from 'pg';
 
 import { _TagsRowBase, TagsRecord } from '../generated/_tags-row-base.js';
 import {
-  getConnection,
-  queryWithConnection,
-  returnConnection,
-} from '../query.js';
-import {
   NormalizedResultGroupOptions,
   normalizeResultGroupOptions,
   ResultGrouper,

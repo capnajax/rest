@@ -9,7 +9,7 @@ import {
   normalizeResultGroupOptions,
   ResultGrouper,
 } from '../../util/result-grouping.js';
-import { omit } from '../../util/tools.js';
+import { isRecord, omit } from '../../util/tools.js';
 import {
   _ArticlesRowBase,
   ArticlesRecord,
@@ -35,6 +35,59 @@ import './media-row.js';
 import './people-row.js';
 import { PermalinksRow } from './permalinks-row.js';
 import { TagsRow } from './tags-row.js';
+
+export interface ADPlainText {
+  format: "text/plain";
+  text: string;
+}
+export interface ADMarkdown {
+  format: "text/markdown";
+  markdown: string;
+}
+export interface ADFile {
+  format?: string;
+  file: string
+}
+export type ArticleDocument = ADPlainText | ADMarkdown | ADFile;
+function isArticleDocument(o: unknown): o is ArticleDocument {
+  return isRecord(o) && (
+    ( Object.hasOwn(o, 'file') &&
+      ( typeof o.file === 'string' &&
+        (o.type === undefined || typeof o.type === 'string')
+      )
+    ) ||
+    ( o.format === 'text/plain' && Object.hasOwn(o, 'text') ) ||
+    ( o.format === 'text/markdown' && Object.hasOwn(o, 'markdown') )
+  );
+}
+
+/**
+ * The data in the `info` column of the `articles` table.
+ */
+export interface ArticleInfo {
+  title: string;
+  abstract?: ArticleDocument;
+  article?: ArticleDocument;
+  name?: string;
+}
+/**
+ * Check if o conforms to the format of the object listed in the `info`
+ * column of the `articles` table.
+ * @param o the obejct to test
+ * @returns `true` if the object conforms to `ArticleInfo`, false if not.
+ */
+export function isArticleInfo(o: unknown): o is ArticleInfo {
+  return isRecord(o) &&
+    typeof o.title === 'string' &&
+    ( o.abstract === undefined || isArticleDocument(o.abstract) ) &&
+    ( o.article === undefined || isArticleDocument(o.article) ) &&
+    ( o.name === undefined || typeof o.name === 'string' )
+}
+export function assertArticleInfo(o: unknown): asserts o is ArticleInfo {
+  if (!isArticleInfo(o)) {
+    throw new TypeError('o is not the expected ArticleInfo');
+  }
+}
 
 /**
  * Options for the `getArticlesByIds` call

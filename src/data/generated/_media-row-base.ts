@@ -14,7 +14,9 @@ import type { PoolClient }   from 'pg';
 export interface MediaSchema {
   id: number;
   article_id: number;
+  attachment_num: number | null;
   filename: string;
+  mime_type: string | null;
   last_update: Date;
   data_b64: string;
 }
@@ -28,8 +30,8 @@ export class _MediaRowBase extends MutableRow {
 
   static readonly columnSets: ColumnSets = {
     summary: ["id"],
-    simple:  ["id","article_id","filename","last_update","data_b64"],
-    all:     ["id","article_id","filename","last_update","data_b64"],
+    simple:  ["id","article_id","attachment_num","filename","mime_type","last_update","data_b64"],
+    all:     ["id","article_id","attachment_num","filename","mime_type","last_update","data_b64"],
   };
 
   static readonly relationshipDefs: RelationshipDef[] = [];
@@ -38,7 +40,9 @@ export class _MediaRowBase extends MutableRow {
 
   readonly id = new Column<number>('id', TypeValidators.number, true);  // number
   readonly article_id = new Column<number>('article_id', TypeValidators.number);  // number
+  readonly attachment_num = new Column<number>('attachment_num', TypeValidators.numberOrNull);  // number | null
   readonly filename = new Column<string>('filename', TypeValidators.string);  // string
+  readonly mime_type = new Column<string>('mime_type', TypeValidators.stringOrNull);  // string | null
   readonly last_update = new Column<Date>('last_update', TypeValidators.date);  // Date
   readonly data_b64 = new Column<string>('data_b64', TypeValidators.string);  // string
 
@@ -54,7 +58,9 @@ export class _MediaRowBase extends MutableRow {
     this._registerColumns(
       this.id,
       this.article_id,
+      this.attachment_num,
       this.filename,
+      this.mime_type,
       this.last_update,
       this.data_b64,
     );
@@ -129,8 +135,14 @@ export class _MediaRowBase extends MutableRow {
     if (this.article_id.isLoaded) {
       result.article_id = this.article_id.value as number;
     }
+    if (this.attachment_num.isLoaded) {
+      result.attachment_num = this.attachment_num.value as number | null;
+    }
     if (this.filename.isLoaded) {
       result.filename = this.filename.value as string;
+    }
+    if (this.mime_type.isLoaded) {
+      result.mime_type = this.mime_type.value as string | null;
     }
     if (this.last_update.isLoaded) {
       result.last_update = this.last_update.value as Date;

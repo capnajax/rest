@@ -35,7 +35,7 @@ import {
   TableKey,
 } from './data-contracts/output.js';
 
-const MODULE = 'data-routes';
+const MODULE = 'r.data';
 
 function normalizeRequestBody(req: Request): NormalizedDataRequest {
   let stage = 'parse';

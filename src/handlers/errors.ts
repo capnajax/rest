@@ -13,12 +13,12 @@ export function registerErrorHandlers(app: Application<AppMeta>) {
     const level = req.endpointMeta.logging.level;
 
     if (level === 'debug' || level === 'error') {
-      log.error({
+      log.error(JSON.stringify({
         error: err.message,
         stack: err.stack,
         method: req.method,
         path: req.path,
-      });
+      }));
     }
 
     if (!res.headers.frozen) {

@@ -231,7 +231,13 @@ export async function queryWithConnection(
     sql = query;
   }
 
-  return connection.query(sql, parameters);
+  try {
+    return connection.query(sql, parameters);
+  } catch(e) {
+    log.error('Failed query: %s', JSON.stringify(e));
+    log.error(query);
+    throw e;
+  }
 }
 
 /**
