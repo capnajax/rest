@@ -5,14 +5,21 @@ import { Pool } from 'pg';
 import { parsedArgs } from '../../src/args.js';
 import { ArticlesRow } from '../../src/data/tables/articles-row.js';
 import { BylinesRow } from '../../src/data/tables/bylines-row.js';
+import { PeopleRow } from '../../src/data/tables/people-row.js';
 import { PermalinksRow } from '../../src/data/tables/permalinks-row.js';
+import { RealmsRow } from '../../src/data/tables/realms-row.js';
 import { TagsRow } from '../../src/data/tables/tags-row.js';
 import {
   createPresetDataHandler,
   getArticleByPermalink,
   getArticleObjects,
+  getBylineObjects,
+  getPersonObjects,
+  getRealmObjects,
   getTagObjects,
 } from '../../src/routes/data.js';
+import { normalizeDataRequest } from
+  '../../src/routes/data-contracts/normalizers.js';
 import { initializeLogger, resetLogger } from '../../src/util/logger.js';
 
 before(() =>
@@ -579,3 +586,148 @@ for (const fails of [false, true]) {
     }
   });
 }
+
+for (const { type, handler, query, row } of [
+  {
+    type: 'byline', handler: getBylineObjects,
+    query: (load: (id: number) => Promise<unknown>) =>
+      mock.method(BylinesRow, 'getBylineById', async (id) =>
+        await load(id) as BylinesRow | 404),
+    row: { toJSON: () => ({ id: 7, text: 'Author' }) },
+  },
+  {
+    type: 'person', handler: getPersonObjects,
+    query: (load: (id: number) => Promise<unknown>) =>
+      mock.method(PeopleRow, 'getPersonById', async (id) =>
+        await load(id) as PeopleRow | 404),
+    row: { redact: () => ({ id: 7, username: 'author' }) },
+  },
+  {
+    type: 'realm', handler: getRealmObjects,
+    query: (load: (id: number) => Promise<unknown>) =>
+      mock.method(RealmsRow, 'getRealmById', async (id) =>
+        await load(id) as RealmsRow | 404),
+    row: { redact: () => ({ id: 7, name: 'Example' }) },
+  },
+]) {
+  const key = { byline: 'bylines', person: 'people', realm: 'realms' }[type]!;
+  for (const stream of [false, true]) {
+    test(`body ${key} supports merged selections (stream=${stream})`,
+      async () => {
+        const loaded: number[] = [];
+        const lookup = query(async (id) => {
+          loaded.push(id);
+          return id === 7 ? row : 404;
+        });
+        try {
+          const input = {
+            objects: [{ [key]: 7 }, { [key]: [7, 99] }],
+            options: { stream },
+          };
+          const result = makeResponse();
+          await createPresetDataHandler(input)(
+            {} as Request, result.response
+          );
+          assert.deepEqual(loaded, [7, 99]);
+          const expected = 'redact' in row ? row.redact() : row.toJSON();
+          assert.deepEqual(JSON.parse(result.messages[0]).objects,
+            [{ type, records: [expected] }]);
+          assert.equal(result.state.ended, 1);
+          assert.equal(result.state.statusCode, 200);
+
+          for (const selection of [true, 'all', 1.5, 2147483648]) {
+            assert.throws(() => normalizeDataRequest({
+              objects: { [key]: selection },
+            }));
+          }
+          assert.deepEqual(normalizeDataRequest({
+            objects: { [key]: false },
+          }).objects, {});
+          const since = '2026-01-01T00:00:00Z';
+          const earlier = '2025-01-01T00:00:00Z';
+          const merged = normalizeDataRequest({ objects: [
+            { [key]: { id: 7, ifModifiedSince: since } },
+            { [key]: { id: [99], ifModifiedSince: earlier } },
+          ] });
+          assert.deepEqual(merged.objects, {
+            [key]: { id: [7, 99], ifModifiedSince: new Date(earlier) },
+          });
+        } finally {
+          lookup.mock.restore();
+        }
+      });
+  }
+  const calls: number[] = [];
+  let fail = false;
+  async function load(id: number): Promise<unknown> {
+    calls.push(id);
+    if (fail) throw new Error('Lookup failed');
+    return id === 7 ? row : 404;
+  }
+
+  test(`GET ${type} validates IDs and serializes selected rows`, async () => {
+    const lookup = query(load);
+    try {
+      for (const ids of [undefined, '', 'all', '1,', '1.5', '2147483648']) {
+        const result = makeResponse();
+        await handler({ params: { ids } } as unknown as Request,
+          result.response);
+        assert.equal(result.state.statusCode, ids === undefined ? 404 : 400);
+        assert.equal(result.state.ended, 1);
+      }
+      assert.deepEqual(calls, []);
+      const result = makeResponse();
+      await handler(makeArticleRequest('7,7,99'), result.response);
+      assert.deepEqual(calls, [7, 99]);
+      const body = JSON.parse(result.messages[0]);
+      const expected = 'redact' in row ? row.redact() : row.toJSON();
+      assert.deepEqual(body.objects, [{ type, records: [expected] }]);
+      assert.ok(body.status.date);
+      assert.equal(result.state.ended, 1);
+      assert.equal(result.headers.get('Content-Type'), 'application/json');
+
+      const missing = makeResponse();
+      await handler(makeArticleRequest('99'), missing.response);
+      assert.deepEqual(JSON.parse(missing.messages[0]).objects,
+        [{ type, records: [] }]);
+
+      fail = true;
+      const failure = makeResponse();
+      await handler(makeArticleRequest('7'), failure.response);
+      assert.equal(failure.state.statusCode, 500);
+      assert.equal(failure.state.ended, 1);
+      assert.deepEqual(failure.messages, []);
+    } finally {
+      lookup.mock.restore();
+    }
+  });
+}
+
+
+test('permalink omits a null byline without a lookup', async () => {
+  const lookup = mock.method(PermalinksRow, 'getPermalink', async () =>
+    new PermalinksRow({ id: 1, article_id: 7 }, true));
+  const load = mock.method(ArticlesRow.prototype, 'loadSimple',
+    async function (this: ArticlesRow) {
+      this.assumeClean('author_id', 2);
+      this.assumeClean('byline_id', null);
+    });
+  const byline = mock.method(BylinesRow, 'findById', async () => {
+    throw new Error('Unexpected byline lookup');
+  });
+  try {
+    const result = makeResponse();
+    await getArticleByPermalink({
+      params: { permalink: 'example' },
+    } as unknown as Request, result.response);
+    assert.equal(result.state.statusCode, 200);
+    const record = JSON.parse(result.messages[0]).objects[0].records[0];
+    assert.equal(record.byline_id, null);
+    assert.equal(Object.hasOwn(record, 'byline'), false);
+    assert.equal(byline.mock.callCount(), 0);
+  } finally {
+    lookup.mock.restore();
+    load.mock.restore();
+    byline.mock.restore();
+  }
+});

@@ -7,12 +7,21 @@ import type { ImmutableRow } from '../../data/orm/immutable-row.js';
 import type { MutableRow } from '../../data/orm/mutable-row.js';
 import type { ArticleSearchType } from './input.js';
 
-const tableKeys: TableKey[] = ['article', 'contentType', 'formFactor', 'tag'];
+const tableKeys: TableKey[] = [
+  'article', 'byline', 'contentType', 'formFactor', 'person', 'realm', 'tag'
+];
 
 /**
  * Resource discriminator used to group record patches in responses.
  */
-export type TableKey = 'article' | 'contentType' | 'formFactor' | 'tag';
+export type TableKey =
+  | 'article'
+  | 'byline'
+  | 'contentType'
+  | 'formFactor'
+  | 'person'
+  | 'realm'
+  | 'tag';
 /**
  * Record fields for one resource. A patch may be partial; merge fields by
  * resource type and ID without discarding previously known fields.

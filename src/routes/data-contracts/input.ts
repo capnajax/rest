@@ -81,6 +81,12 @@ export interface ObjectRequestsInput {
    * Explicit article IDs. Requests for all articles are not supported.
    */
   articles?: ObjectIdSelectionInput;
+  /** Explicit byline IDs; modification dates are currently ignored. */
+  bylines?: ObjectIdSelectionInput;
+  /** Explicit person IDs; modification dates are currently ignored. */
+  people?: ObjectIdSelectionInput;
+  /** Explicit realm IDs; modification dates are currently ignored. */
+  realms?: ObjectIdSelectionInput;
   /**
    * Any truthy selection requests every content type and form factor.
    * Individual IDs and modification dates do not restrict this load.
@@ -103,6 +109,9 @@ function isObjectRequestsInput(value: unknown): value is ObjectRequestsInput {
     isRecord(value) &&
     (value.articles === undefined ||
       isObjectIdSelectionInput(value.articles)) &&
+    (value.bylines === undefined || isObjectIdSelectionInput(value.bylines)) &&
+    (value.people === undefined || isObjectIdSelectionInput(value.people)) &&
+    (value.realms === undefined || isObjectIdSelectionInput(value.realms)) &&
     (value.contentTypes === undefined ||
       isObjectSelectionInput(value.contentTypes)) &&
     (value.formFactors === undefined ||
@@ -126,7 +135,7 @@ export function assertObjectRequestsInput(
 
 /**
  * Explicit record selection: false disables loading; a number or array selects
- * IDs; the detailed form also supplies a modification date. Article IDs must
+ * IDs; the detailed form also supplies a modification date. Record IDs must
  * fit signed 32-bit PostgreSQL integers. An empty array selects no IDs.
  */
 export type ObjectIdSelectionInput =
@@ -270,7 +279,7 @@ export interface TagSelectionDetailsInput {
  */
 export interface ObjectIdSelectionDetailsInput {
   /**
-   * One ID or an array of IDs. Article IDs must fit signed 32-bit PostgreSQL
+   * One ID or an array of IDs. Record IDs must fit signed 32-bit PostgreSQL
    * integers.
    */
   id: number | number[];

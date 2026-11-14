@@ -25,6 +25,12 @@ export class RealmsRow extends _RealmsRowBase {
     );
     return records.length > 0 ? new RealmsRow()._fromRecord(records[0]) : 404;
   }
+
+  /** Returns API fields unchanged until a redaction policy is defined. */
+  redact(): Record<string, unknown> {
+    // TODO: Apply redaction when access requirements are defined.
+    return this.toJSON();
+  }
 }
 
 ReferenceData.register(RealmsRow);

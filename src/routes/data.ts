@@ -10,7 +10,9 @@ import {
 import { BylinesRow } from '../data/tables/bylines-row.js';
 import { ContentTypesRow } from '../data/tables/content-types-row.js';
 import { FormFactorsRow } from '../data/tables/form-factors-row.js';
+import { PeopleRow } from '../data/tables/people-row.js';
 import { PermalinksRow } from '../data/tables/permalinks-row.js';
+import { RealmsRow } from '../data/tables/realms-row.js';
 import { TagsRow } from '../data/tables/tags-row.js';
 import { ANALYTICS_ENABLED, PUBLIC } from '../meta/defaults.js';
 import { AppMeta } from '../meta/meta-types.js';
@@ -464,6 +466,18 @@ function handleDataRequest(
         .then(() => searchComplete(handle))
         .catch(searchException);
     }
+    for (const [key, type] of [
+      ['bylines', 'byline'], ['people', 'person'], ['realms', 'realm'],
+    ] as const) {
+      const selection = body.objects[key];
+      if (selection) {
+        const handle = searchPending(`${type} objects`);
+        loadTableObjects(selection.id, type)
+          .then((records) => out.object(type, records))
+          .then(() => searchComplete(handle))
+          .catch(searchException);
+      }
+    }
     if (body.objects.contentTypes) {
       const handle = searchPending('content types and form factors');
       handleContentTypeObjects(out)
@@ -513,7 +527,8 @@ export function createPresetDataHandler(
  * GET /v3/data/articles/permalink/:permalink resolves primary and historical
  * names. Returns a non-streaming DataResponse with one article patch, loaded
  * tags, content_type and primary_permalink relationships, and a nullable
- * byline string when byline_id is set. Dates use ISO 8601 strings in JSON.
+ * byline string when byline_id is set. A null byline_id omits the byline
+ * and performs no byline lookup. Dates use ISO 8601 strings in JSON.
  * Returns 404 for unknown names and 500 if loading fails.
  */
 export async function getArticleByPermalink(
@@ -547,6 +562,96 @@ export async function getArticleByPermalink(
     res.statusCode = 500;
     await res.end();
   }
+}
+
+/** Returns bylines selected by comma-separated numeric IDs. */
+export async function getBylineObjects(req: Request, res: Response)
+: Promise<void> {
+  await getTableObjects(req, res, 'byline');
+}
+
+/** Returns people through the placeholder redaction hook. */
+export async function getPersonObjects(req: Request, res: Response)
+: Promise<void> {
+  await getTableObjects(req, res, 'person');
+}
+
+/** Returns realms through the placeholder redaction hook. */
+export async function getRealmObjects(req: Request, res: Response)
+: Promise<void> {
+  await getTableObjects(req, res, 'realm');
+}
+
+/** Uses the same lookup and redaction path for every data request. */
+async function loadTableObjects(
+  ids: number[], type: 'byline' | 'person' | 'realm'
+): Promise<ObjectPatch[]> {
+  const records: ObjectPatch[] = [];
+  for (const id of new Set(ids)) {
+    let record: Record<string, unknown>;
+    if (type === 'byline') {
+      const row = await BylinesRow.getBylineById(id);
+      if (row === 404) continue;
+      record = row.toJSON();
+    } else if (type === 'person') {
+      const row = await PeopleRow.getPersonById(id);
+      if (row === 404) continue;
+      record = row.redact();
+    } else {
+      const row = await RealmsRow.getRealmById(id);
+      if (row === 404) continue;
+      record = row.redact();
+    }
+    records.push(record as ObjectPatch);
+  }
+  return records;
+}
+
+/**
+ * Loads explicit IDs into a non-streaming DataResponse, omitting missing rows.
+ * An absent ID parameter returns 404; malformed IDs return 400; load
+ * failures return 500.
+ * Duplicate IDs are loaded once. Modification headers are ignored.
+ */
+async function getTableObjects(
+  req: Request,
+  res: Response,
+  type: 'byline' | 'person' | 'realm'
+): Promise<void> {
+  if (req.params.ids === undefined) {
+    res.statusCode = 404;
+    await res.end();
+    return;
+  }
+
+  let ids: number[];
+  try {
+    const values = req.params.ids.split(',');
+    if (values.some((value) => !/^[+-]?\d+$/.test(value))) {
+      throw new InvalidQuery('Expected comma-separated integer IDs.');
+    }
+    ids = values.map(Number);
+    assertPGableIntegerArray(ids);
+  } catch (error) {
+    await rejectDataRequest(res, error);
+    return;
+  }
+
+  let records: ObjectPatch[];
+  try {
+    records = await loadTableObjects(ids, type);
+  } catch (error) {
+    getLogger(MODULE, 'getTableObjects').error(
+      'Failed to load %s records: %s', type, error
+    );
+    res.statusCode = 500;
+    await res.end();
+    return;
+  }
+
+  const out = new CombinedResponseHandler(res, false, { date: new Date() });
+  await out.object(type, records);
+  await out.end();
 }
 
 /** Returns articles filtered by the optional modification date. */
@@ -741,6 +846,9 @@ export function dataRoutes(app: Application<AppMeta>) {
 
   ctx.get('/articles/permalink/:permalink', PUBLIC, getArticleByPermalink);
   ctx.get('/articles/:ids', PUBLIC, getArticleObjects);
+  ctx.get('/bylines/:ids', PUBLIC, getBylineObjects);
+  ctx.get('/people/:ids', PUBLIC, getPersonObjects);
+  ctx.get('/realms/:ids', PUBLIC, getRealmObjects);
   ctx.get('/tags/:ids', PUBLIC, getTagObjects);
 
   ctx.put('/', '', PUBLIC, (req, res) => {

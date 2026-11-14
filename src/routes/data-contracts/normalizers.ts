@@ -34,6 +34,12 @@ interface NormalizedObjectRequests {
    * Explicit article selection; omitted when article loading is disabled.
    */
   articles?: NormalizedObjectIdSelection;
+  /** Explicit byline selection; modification dates are currently ignored. */
+  bylines?: NormalizedObjectIdSelection;
+  /** Explicit person selection; modification dates are currently ignored. */
+  people?: NormalizedObjectIdSelection;
+  /** Explicit realm selection; modification dates are currently ignored. */
+  realms?: NormalizedObjectIdSelection;
   /**
    * When present, load all content types and form factors together.
    */
@@ -57,7 +63,7 @@ interface NormalizedObjectSelection {
   ifModifiedSince?: Date;
 }
 /**
- * Canonical explicit-ID selection. Article IDs have passed signed 32-bit
+ * Canonical explicit-ID selection. Record IDs have passed signed 32-bit
  * integer validation.
  */
 export interface NormalizedObjectIdSelection {
@@ -151,24 +157,22 @@ function searchObjectReducer(
     return accumulator;
   }
 
-  // articles
-  if (accumulator.articles) {
-    if (o.articles) {
-      accumulator.articles.id.push(...o.articles.id);
-      // ifModifiedSince - use earlier date, undefined trumps any date
-      if (accumulator.articles.ifModifiedSince) {
-        if (o.articles.ifModifiedSince) {
-          accumulator.articles.ifModifiedSince = earlierDate(
-            accumulator.articles.ifModifiedSince,
-            o.articles.ifModifiedSince
-          );
-        } else {
-          delete accumulator.articles.ifModifiedSince;
-        }
+  // Merge explicit selections, retaining the earliest modification date.
+  for (const key of ['articles', 'bylines', 'people', 'realms'] as const) {
+    const current = accumulator[key];
+    const incoming = o[key];
+    if (current && incoming) {
+      current.id.push(...incoming.id);
+      if (current.ifModifiedSince && incoming.ifModifiedSince) {
+        current.ifModifiedSince = earlierDate(
+          current.ifModifiedSince, incoming.ifModifiedSince
+        );
+      } else {
+        delete current.ifModifiedSince;
       }
+    } else if (incoming) {
+      accumulator[key] = incoming;
     }
-  } else if (o.articles) {
-    accumulator.articles = o.articles;
   }
 
   // contentTypes
@@ -226,9 +230,11 @@ function normalizeArticleSearch(value: unknown): NormalizedArticleSearch {
 function normalizeObjectRequests(value: unknown): NormalizedObjectRequests {
   assertObjectRequestsInput(value);
   const result: NormalizedObjectRequests = {};
-  // false or undefined means the same, and `true` is disallowed by the assert
-  if (value.articles) {
-    result.articles = normalizeObjectIdSelection(value.articles);
+  for (const key of ['articles', 'bylines', 'people', 'realms'] as const) {
+    const selection = value[key];
+    if (selection !== undefined && selection !== false) {
+      result[key] = normalizeObjectIdSelection(selection);
+    }
   }
   if (value.contentTypes || value.formFactors) {
     result.contentTypes = true;
