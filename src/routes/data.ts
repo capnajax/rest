@@ -7,8 +7,10 @@ import {
   ArticlesRow,
   GetArticlesOptionsInput,
 } from '../data/tables/articles-row.js';
+import { BylinesRow } from '../data/tables/bylines-row.js';
 import { ContentTypesRow } from '../data/tables/content-types-row.js';
 import { FormFactorsRow } from '../data/tables/form-factors-row.js';
+import { PermalinksRow } from '../data/tables/permalinks-row.js';
 import { TagsRow } from '../data/tables/tags-row.js';
 import { ANALYTICS_ENABLED, PUBLIC } from '../meta/defaults.js';
 import { AppMeta } from '../meta/meta-types.js';
@@ -507,6 +509,46 @@ export function createPresetDataHandler(
   };
 }
 
+/**
+ * GET /v3/data/articles/permalink/:permalink resolves primary and historical
+ * names. Returns a non-streaming DataResponse with one article patch, loaded
+ * tags, content_type and primary_permalink relationships, and a nullable
+ * byline string when byline_id is set. Dates use ISO 8601 strings in JSON.
+ * Returns 404 for unknown names and 500 if loading fails.
+ */
+export async function getArticleByPermalink(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const permalink = await PermalinksRow.getPermalink(req.params.permalink);
+    if (permalink === 404) {
+      res.statusCode = 404;
+      await res.end();
+      return;
+    }
+
+    const article = new ArticlesRow({ id: permalink.article_id.value }, true);
+    await article.loadSimple();
+    const record = article.toJSON() as ObjectPatch;
+    const bylineId = article.byline_id.value;
+    if (typeof bylineId === 'number') {
+      const byline = await BylinesRow.findById(bylineId);
+      record.byline = byline?.text.value ?? null;
+    }
+
+    const out = new CombinedResponseHandler(res, false, { date: new Date() });
+    await out.object('article', [record]);
+    await out.end();
+  } catch (error) {
+    getLogger(MODULE, 'getArticleByPermalink').error(
+      'Failed to load article: %s', error
+    );
+    res.statusCode = 500;
+    await res.end();
+  }
+}
+
 /** Returns articles filtered by the optional modification date. */
 export async function getArticleObjects(
   req: Request,
@@ -697,6 +739,7 @@ export function dataRoutes(app: Application<AppMeta>) {
     return handleDataRequest(res, body);
   });
 
+  ctx.get('/articles/permalink/:permalink', PUBLIC, getArticleByPermalink);
   ctx.get('/articles/:ids', PUBLIC, getArticleObjects);
   ctx.get('/tags/:ids', PUBLIC, getTagObjects);
 

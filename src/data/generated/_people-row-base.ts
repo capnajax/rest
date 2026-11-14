@@ -15,10 +15,10 @@ import type { RealmsRow } from '../tables/realms-row.js';
 
 export interface PeopleSchema {
   id: number;
-  username: string;
-  displayname: string;
   realm_id: number;
-  isauthor: boolean;
+  username: string;
+  shortname: string;
+  fullname: string;
   info: Record<string, unknown> | null;
 }
 export type PeopleRecord = {id: number} & Partial<PeopleSchema>;
@@ -31,8 +31,8 @@ export class _PeopleRowBase extends MutableRow {
 
   static readonly columnSets: ColumnSets = {
     summary: ["id"],
-    simple:  ["id","username","displayname","realm_id","isauthor","info"],
-    all:     ["id","username","displayname","realm_id","isauthor","info"],
+    simple:  ["id","realm_id","username","shortname","fullname","info"],
+    all:     ["id","realm_id","username","shortname","fullname","info"],
   };
 
   static readonly relationshipDefs: RelationshipDef[] = [
@@ -43,10 +43,10 @@ export class _PeopleRowBase extends MutableRow {
   // ── Scalar columns ───────────────────────────────────────────────────────
 
   readonly id = new Column<number>('id', TypeValidators.number, true);  // number
-  readonly username = new Column<string>('username', TypeValidators.string);  // string
-  readonly displayname = new Column<string>('displayname', TypeValidators.string);  // string
   readonly realm_id = new Column<number>('realm_id', TypeValidators.number);  // number
-  readonly isauthor = new Column<boolean>('isauthor', TypeValidators.boolean);  // boolean
+  readonly username = new Column<string>('username', TypeValidators.string);  // string
+  readonly shortname = new Column<string>('shortname', TypeValidators.string);  // string
+  readonly fullname = new Column<string>('fullname', TypeValidators.string);  // string
   readonly info = new Column<Record<string, unknown>>('info', TypeValidators.objectOrNull);  // Record<string, unknown> | null
 
   // ── Relationships ──────────────────────────────────────────────────
@@ -65,10 +65,10 @@ export class _PeopleRowBase extends MutableRow {
     super();
     this._registerColumns(
       this.id,
-      this.username,
-      this.displayname,
       this.realm_id,
-      this.isauthor,
+      this.username,
+      this.shortname,
+      this.fullname,
       this.info,
     );
     this._initialize(initialData, assumeFromDb);
@@ -139,17 +139,17 @@ export class _PeopleRowBase extends MutableRow {
     const result: {id: number} & Partial<PeopleSchema> = {
       id: this.id.value as number
     };
-    if (this.username.isLoaded) {
-      result.username = this.username.value as string;
-    }
-    if (this.displayname.isLoaded) {
-      result.displayname = this.displayname.value as string;
-    }
     if (this.realm_id.isLoaded) {
       result.realm_id = this.realm_id.value as number;
     }
-    if (this.isauthor.isLoaded) {
-      result.isauthor = this.isauthor.value as boolean;
+    if (this.username.isLoaded) {
+      result.username = this.username.value as string;
+    }
+    if (this.shortname.isLoaded) {
+      result.shortname = this.shortname.value as string;
+    }
+    if (this.fullname.isLoaded) {
+      result.fullname = this.fullname.value as string;
     }
     if (this.info.isLoaded) {
       result.info = this.info.value as Record<string, unknown> | null;

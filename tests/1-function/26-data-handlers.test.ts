@@ -4,9 +4,12 @@ import type { Request, Response } from 'filamentjs';
 import { Pool } from 'pg';
 import { parsedArgs } from '../../src/args.js';
 import { ArticlesRow } from '../../src/data/tables/articles-row.js';
+import { BylinesRow } from '../../src/data/tables/bylines-row.js';
+import { PermalinksRow } from '../../src/data/tables/permalinks-row.js';
 import { TagsRow } from '../../src/data/tables/tags-row.js';
 import {
   createPresetDataHandler,
+  getArticleByPermalink,
   getArticleObjects,
   getTagObjects,
 } from '../../src/routes/data.js';
@@ -513,6 +516,66 @@ for (const mode of ['stream', 'combined', 'get'] as const) {
     } finally {
       parsedArgs.dbUrl = previousUrl;
       connect.mock.restore();
+    }
+  });
+}
+
+
+test('permalink lookup includes relationships and byline', async () => {
+  const result = makeResponse();
+  const lookup = mock.method(PermalinksRow, 'getPermalink', async (name) => {
+    assert.equal(name, 'old-name');
+    return new PermalinksRow({ id: 1, article_id: 7 }, true);
+  });
+  const load = mock.method(ArticlesRow.prototype, 'loadSimple', async function (
+    this: ArticlesRow
+  ) {
+    assert.equal(this.id.value, 7);
+    this.assumeClean('byline_id', 3);
+  });
+  const serialize = mock.method(ArticlesRow.prototype, 'toJSON', () => ({
+    id: 7, tags: [{ id: 2, title: 'Example' }],
+    content_type: { id: 1, name: 'article' },
+    primary_permalink: { id: 4, name: 'new-name' },
+  }));
+  const byline = mock.method(BylinesRow, 'findById', async (id) => {
+    assert.equal(id, 3);
+    return new BylinesRow({ id, text: 'An author' }, true);
+  });
+  try {
+    await getArticleByPermalink({
+      params: { permalink: 'old-name' },
+    } as unknown as Request, result.response);
+    const body = JSON.parse(result.messages.join(''));
+    assert.equal(result.state.statusCode, 200);
+    assert.equal(result.state.ended, 1);
+    assert.equal(body.objects[0].records[0].byline, 'An author');
+    assert.equal(body.objects[0].records[0].tags[0].id, 2);
+    assert.equal(body.objects[0].records[0].primary_permalink.name, 'new-name');
+  } finally {
+    lookup.mock.restore();
+    load.mock.restore();
+    serialize.mock.restore();
+    byline.mock.restore();
+  }
+});
+
+for (const fails of [false, true]) {
+  test(`permalink lookup handles missing or failed lookup (${fails})`, async () => {
+    const result = makeResponse();
+    const lookup = mock.method(PermalinksRow, 'getPermalink', async () => {
+      if (fails) throw new Error('Lookup failed');
+      return 404 as const;
+    });
+    try {
+      await getArticleByPermalink({
+        params: { permalink: 'missing' },
+      } as unknown as Request, result.response);
+      assert.equal(result.state.statusCode, fails ? 500 : 404);
+      assert.equal(result.state.ended, 1);
+      assert.equal(result.messages.length, 0);
+    } finally {
+      lookup.mock.restore();
     }
   });
 }

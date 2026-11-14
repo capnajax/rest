@@ -172,6 +172,7 @@ async function respondWithMedia(
           break;
         case 'text/markdown':
           content = (articleInfo.article as ADMarkdown)?.markdown as string;
+          break;
         default:
           throw new Error(
             formatWithOptions({}, 'Internal error: unknown content type "%s"',

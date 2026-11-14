@@ -8,8 +8,7 @@ import '../data/query.js'; // for side effects only
 
 import { mediaRoutes } from './media.js';
 import { dataRoutes } from './data.js';
-import { oauthRoutes } from './oauth.js';
-import { userRoutes } from './user.js';
+import { postedRoutes } from './posted.js';
 
 const MODULE = 'routes';
 
@@ -46,10 +45,9 @@ export function registerRoutes(app: Application<AppMeta, Context>) {
     registerFn(app);
   }
 
-  registerRouteGroup('article', mediaRoutes);
   registerRouteGroup('data', dataRoutes);
-  registerRouteGroup('oauth', oauthRoutes);
-  registerRouteGroup('user', userRoutes);
+  registerRouteGroup('media', mediaRoutes);
+  registerRouteGroup('posted', postedRoutes);
 
   log.info('All routes registered');
 }

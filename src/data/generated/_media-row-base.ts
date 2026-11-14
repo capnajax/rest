@@ -18,6 +18,7 @@ export interface MediaSchema {
   filename: string;
   mime_type: string | null;
   last_update: Date;
+  metadata: Record<string, unknown> | null;
   data_b64: string;
 }
 export type MediaRecord = {id: number} & Partial<MediaSchema>;
@@ -30,8 +31,8 @@ export class _MediaRowBase extends MutableRow {
 
   static readonly columnSets: ColumnSets = {
     summary: ["id"],
-    simple:  ["id","article_id","attachment_num","filename","mime_type","last_update","data_b64"],
-    all:     ["id","article_id","attachment_num","filename","mime_type","last_update","data_b64"],
+    simple:  ["id","article_id","attachment_num","filename","mime_type","last_update","metadata","data_b64"],
+    all:     ["id","article_id","attachment_num","filename","mime_type","last_update","metadata","data_b64"],
   };
 
   static readonly relationshipDefs: RelationshipDef[] = [];
@@ -44,6 +45,7 @@ export class _MediaRowBase extends MutableRow {
   readonly filename = new Column<string>('filename', TypeValidators.string);  // string
   readonly mime_type = new Column<string>('mime_type', TypeValidators.stringOrNull);  // string | null
   readonly last_update = new Column<Date>('last_update', TypeValidators.date);  // Date
+  readonly metadata = new Column<Record<string, unknown>>('metadata', TypeValidators.objectOrNull);  // Record<string, unknown> | null
   readonly data_b64 = new Column<string>('data_b64', TypeValidators.string);  // string
 
   // ── Relationships ──────────────────────────────────────────────────
@@ -62,6 +64,7 @@ export class _MediaRowBase extends MutableRow {
       this.filename,
       this.mime_type,
       this.last_update,
+      this.metadata,
       this.data_b64,
     );
     this._initialize(initialData, assumeFromDb);
@@ -146,6 +149,9 @@ export class _MediaRowBase extends MutableRow {
     }
     if (this.last_update.isLoaded) {
       result.last_update = this.last_update.value as Date;
+    }
+    if (this.metadata.isLoaded) {
+      result.metadata = this.metadata.value as Record<string, unknown> | null;
     }
     if (this.data_b64.isLoaded) {
       result.data_b64 = this.data_b64.value as string;
